@@ -12,6 +12,19 @@ Building a high-performance, scalable E-Commerce backend using Python and FastAP
 - **Security:** Passlib (Brypt), SlowAPI (Rate Limiting)
 - **Containerization:** Docker (In Progress)
 
+## 🏗️ Architecture
+
+The project follows a **3-Tier Service Layer Architecture** to ensure separation of concerns and maintainability:
+
+1.  **Routers (Presentation Layer):** Handle HTTP requests/responses and request validation (Pydantic).
+2.  **Services (Business Logic Layer):** Contains the core domain logic, independent of the database or HTTP context.
+3.  **Models (Data Access Layer):** SQLAlchemy models for database interactions.
+
+**Key Design Patterns:**
+*   **Dependency Injection:** Used for database sessions and current user validation.
+*   **Middleware:** Centralized error handling, logging, and rate limiting.
+
+
 ## 🗺️ Roadmap & Features
 
 ### ✅ Completed (Phase 1: Foundation)

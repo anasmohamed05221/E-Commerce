@@ -27,7 +27,7 @@ Building a high-performance, scalable E-Commerce backend using Python and FastAP
 
 ### 📅 Planned (Phase 3: Reliability & Ops)
 - [ ] **Testing:** Pytest suite for unit/integration tests.
-- [ ] **CI/CD:** GitHub Actions for automated linting/testing.
+- [ ] **Deployment:** Automated pipelines for building, testing, and deploying the application.
 - [ ] **Frontend:** React/Next.js integration.
 
 ## 🚀 Quick Start

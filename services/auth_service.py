@@ -14,8 +14,13 @@ class AuthService:
     @staticmethod
     def authenticate_user(email: str, password: str, db: Session):
         user = db.query(User).filter(email==User.email).first()
+        
         if not user:
             return False
+        
+        if not user.is_active:
+            return False
+        
         if not verify_password(password, user.hashed_password):
             # Log failed password verification
             logger.debug(
@@ -97,4 +102,12 @@ class AuthService:
         send_email(request.email, subject=subject, body=body)
 
         db.refresh(model)
+        return model
+
+
+
+    @staticmethod
+    def get_active_user_by_id(db: Session, user_id: int) -> User | None:
+        model = db.query(User).filter(User.id==user.get("user_id") and User.is_active==True).one_or_none()
+
         return model

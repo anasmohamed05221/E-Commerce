@@ -18,7 +18,12 @@ class User(Base):
     first_name = Column(String)
     last_name = Column(String)
     hashed_password = Column(String, nullable=False)
-    is_active = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=True) 
+    """is_active = False means:
+    - User cannot authenticate
+    - User is treated as deleted / deactivated
+    - User is excluded from all business logic
+    """
     role = Column(String, default="customer")
     phone_number = Column(String)
     # Email verification fields

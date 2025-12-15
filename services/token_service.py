@@ -5,7 +5,9 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from jose import jwt, JWTError
 from models.refresh_tokens import RefreshToken
+from models.users import User
 from core.config import settings
+from services.auth_service import AuthService
 
 
 class TokenService:
@@ -127,6 +129,7 @@ class TokenService:
         Raises:
             HTTPException: If token is invalid, expired, or revoked
         """
+        
         try:
             # Decode refresh token
             payload = jwt.decode(
@@ -173,6 +176,10 @@ class TokenService:
                     detail="Token expired"
                 )
             
+            user = db.query(User).filter(User.id == user_id).one_or_none()
+            if not user.is_active:
+                raise HTTPException(status_code=403, detail="Account is inactive")
+
             # Revoke old token (token rotation)
             db_token.revoked = True
             db.commit()

@@ -139,3 +139,7 @@ class ResetPasswordRequest(BaseModel):
             raise ValueError('Password must contain at least one digit')
 
         return value
+
+class DeactivateUserRequest(BaseModel):
+    password: str
+

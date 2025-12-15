@@ -83,6 +83,9 @@ def verify_email(request: Request, body: VerifyEmailRequest, db: db_dependency):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
         detail="User not found")
 
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account inactive")
+
     if user.is_verified:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
         detail="Email already verified")

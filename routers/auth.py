@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from utils.deps import db_dependency, user_dependency
 from starlette import status
@@ -143,7 +143,7 @@ async def logout(request: Request, body: RevokeTokenRequest, db: db_dependency):
 
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
 @limiter.limit("3/minute")
-async def forgot_password_request(request: Request, body: ForgotPasswordRequest, db: db_dependency):
+async def forgot_password_request(request: Request, body: ForgotPasswordRequest, db: db_dependency, bg: BackgroundTasks):
     """
     Request password reset. via email.
     """
@@ -166,48 +166,49 @@ async def forgot_password_request(request: Request, body: ForgotPasswordRequest,
     # Send reset email
     reset_url = f"http://localhost:8000/auth/reset-password?token={reset_token}"
 
-    send_email(
-        to_email=model.email,
-        subject="Reset Your Password",
-        body=f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2 style="color: #2c3e50;">Password Reset Request</h2>
-                <p>We received a request to reset your password.</p>
-                
-                <div style="margin: 30px 0;">
-                    <p>Click the button below to reset your password:</p>
-                    <a href="{reset_url}" 
-                    style="display: inline-block; padding: 14px 28px; background-color: #3498db; 
-                            color: white; text-decoration: none; border-radius: 4px; margin: 10px 0;
-                            font-weight: bold;">
-                        Reset Password
-                    </a>
-                </div>
-                
-                <p style="color: #666; font-size: 14px; margin-top: 30px;">
-                    ⏰ This link expires in 15 minutes.
-                </p>
-                
-                <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin: 20px 0;">
-                    <p style="margin: 0; color: #856404;">
-                        <strong>⚠️ Security Notice:</strong> If you didn't request this password reset, please ignore this email. Your password will remain unchanged.
-                    </p>
-                </div>
-                
-                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                
-                <p style="color: #999; font-size: 12px;">
-                    If you're having trouble clicking the button, copy and paste this URL into your browser:
-                    <br><br>
-                    {reset_url}
+    
+    to_email=model.email
+    subject="Reset Your Password"
+    email_body=f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2c3e50;">Password Reset Request</h2>
+            <p>We received a request to reset your password.</p>
+            
+            <div style="margin: 30px 0;">
+                <p>Click the button below to reset your password:</p>
+                <a href="{reset_url}" 
+                style="display: inline-block; padding: 14px 28px; background-color: #3498db; 
+                        color: white; text-decoration: none; border-radius: 4px; margin: 10px 0;
+                        font-weight: bold;">
+                    Reset Password
+                </a>
+            </div>
+            
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">
+                ⏰ This link expires in 15 minutes.
+            </p>
+            
+            <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin: 20px 0;">
+                <p style="margin: 0; color: #856404;">
+                    <strong>⚠️ Security Notice:</strong> If you didn't request this password reset, please ignore this email. Your password will remain unchanged.
                 </p>
             </div>
-        </body>
-        </html>
-        """
-    )
+            
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+            
+            <p style="color: #999; font-size: 12px;">
+                If you're having trouble clicking the button, copy and paste this URL into your browser:
+                <br><br>
+                {reset_url}
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+    bg.add_task(send_email, to_email=to_email, subject=subject, body=email_body)
     
     logger.info(
         "Password reset email sent",

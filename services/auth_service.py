@@ -3,7 +3,7 @@ from models.users import User
 from sqlalchemy.orm import Session
 from utils.verification import generate_verification_code, get_code_expiry_time
 from services.email_service import send_email
-from fastapi import HTTPException
+from fastapi import HTTPException, BackgroundTasks
 from starlette import status
 from utils.logger import get_logger
 
@@ -47,7 +47,7 @@ class AuthService:
         return user
 
     @staticmethod
-    def create_user(request, db: Session):
+    def create_user(request, db: Session, bg: BackgroundTasks):
         """
         Creates a new user and sends verification email.
         
@@ -88,7 +88,7 @@ class AuthService:
         db.commit()
 
         subject = "Verify Your Email - E-commerce App"
-        body=f"""
+        email_body=f"""
         <html>
         <body>
             <h2>Welcome to E-Commerce App!</h2>
@@ -99,7 +99,7 @@ class AuthService:
         </body>
         </html>
             """
-        send_email(request.email, subject=subject, body=body)
+        bg.add_task(send_email, to_email=request.email, subject=subject, body=email_body)
 
         db.refresh(model)
         return model

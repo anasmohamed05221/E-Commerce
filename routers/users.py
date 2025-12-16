@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Request
+from fastapi import APIRouter, HTTPException, Depends, status, Request, BackgroundTasks
 from utils.deps import user_dependency, db_dependency
 from services.email_service import send_email
 from models.users import User
@@ -43,7 +43,8 @@ async def get_user_info(request: Request, user: user_dependency, db: db_dependen
 
 @router.put("/me/password", status_code=status.HTTP_200_OK)
 @limiter.limit("2/minute")
-async def change_password_request(request: Request, body: ChangePasswordRequest, user: user_dependency, db: db_dependency):
+async def change_password_request(request: Request, body: ChangePasswordRequest,
+    user: user_dependency, db: db_dependency, bg: BackgroundTasks):
     """
     Request password change. Sends confirmation email.
     """
@@ -70,52 +71,52 @@ async def change_password_request(request: Request, body: ChangePasswordRequest,
     confirm_url = f"http://localhost:8000/users/confirm-password-change?token={confirmation_token}"
     deny_url = f"http://localhost:8000/users/deny-password-change?token={confirmation_token}"
 
-    send_email(
-        to_email=model.email,
-        subject="Confirm Password Change",
-        body=f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2 style="color: #2c3e50;">Password Change Request</h2>
-                <p>A password change was requested for your account.</p>
-                
-                <div style="margin: 30px 0;">
-                    <p><strong>If this was you:</strong></p>
-                    <a href="{confirm_url}" 
-                    style="display: inline-block; padding: 12px 24px; background-color: #4CAF50; 
-                            color: white; text-decoration: none; border-radius: 4px; margin: 10px 0;">
-                        ✓ Yes, Confirm Password Change
-                    </a>
-                </div>
-                
-                <div style="margin: 30px 0;">
-                    <p><strong>If this was NOT you:</strong></p>
-                    <a href="{deny_url}" 
-                    style="display: inline-block; padding: 12px 24px; background-color: #f44336; 
-                            color: white; text-decoration: none; border-radius: 4px; margin: 10px 0;">
-                        ✗ No, Deny and Logout All Sessions
-                    </a>
-                </div>
-                
-                <p style="color: #666; font-size: 14px; margin-top: 30px;">
-                    ⏰ This link expires in 15 minutes.
-                </p>
-                
-                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                
-                <p style="color: #999; font-size: 12px;">
-                    If you're having trouble clicking the buttons, copy and paste the URLs below into your browser:
-                    <br><br>
-                    Confirm: {confirm_url}
-                    <br>
-                    Deny: {deny_url}
-                </p>
+    
+    to_email=model.email
+    subject="Confirm Password Change"
+    email_body=f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2c3e50;">Password Change Request</h2>
+            <p>A password change was requested for your account.</p>
+            
+            <div style="margin: 30px 0;">
+                <p><strong>If this was you:</strong></p>
+                <a href="{confirm_url}" 
+                style="display: inline-block; padding: 12px 24px; background-color: #4CAF50; 
+                        color: white; text-decoration: none; border-radius: 4px; margin: 10px 0;">
+                    ✓ Yes, Confirm Password Change
+                </a>
             </div>
-        </body>
-        </html>
-        """
-    )
+            
+            <div style="margin: 30px 0;">
+                <p><strong>If this was NOT you:</strong></p>
+                <a href="{deny_url}" 
+                style="display: inline-block; padding: 12px 24px; background-color: #f44336; 
+                        color: white; text-decoration: none; border-radius: 4px; margin: 10px 0;">
+                    ✗ No, Deny and Logout All Sessions
+                </a>
+            </div>
+            
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">
+                ⏰ This link expires in 15 minutes.
+            </p>
+            
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+            
+            <p style="color: #999; font-size: 12px;">
+                If you're having trouble clicking the buttons, copy and paste the URLs below into your browser:
+                <br><br>
+                Confirm: {confirm_url}
+                <br>
+                Deny: {deny_url}
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+    bg.add_task(send_email, to_email=to_email, subject=subject, body=email_body)
     
     
     return {"message": "Confirmation email sent. Please check your inbox."}
@@ -158,7 +159,7 @@ async def confirm_password_change(token: str, db: db_dependency):
 
 
 @router.get("/deny-password-change", status_code=status.HTTP_200_OK)
-async def deny_password_change(token: str, db: db_dependency):
+async def deny_password_change(token: str, db: db_dependency, bg: BackgroundTasks):
     """
     Deny password change and logout all sessions (public endpoint).
     """
@@ -184,17 +185,18 @@ async def deny_password_change(token: str, db: db_dependency):
     TokenService.revoke_all_user_tokens(model.id, db)
     
     # Send security alert email
-    send_email(
-        to_email=model.email,
-        subject="Security Alert: Password Change Denied",
-        body=f"""
-        A password change request for your account was denied.
-        
-        All active sessions have been logged out for security.
-        
-        If you did not request this change, please secure your account immediately.
-        """
-    )
+    
+    to_email=model.email
+    subject="Security Alert: Password Change Denied"
+    email_body=f"""
+    A password change request for your account was denied.
+    
+    All active sessions have been logged out for security.
+    
+    If you did not request this change, please secure your account immediately.
+    """
+    
+    bg.add_task(send_email, to_email=to_email, subject=subject, body=email_body)
     
     return {"message": "Password change cancelled. All sessions logged out."}
 

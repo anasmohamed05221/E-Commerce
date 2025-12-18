@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 from starlette import status
 from core.config import settings
+
 def get_db():
     db = SessionLocal()
     try:

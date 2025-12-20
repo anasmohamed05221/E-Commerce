@@ -1,6 +1,10 @@
+from typing import List
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 
 class Settings(BaseSettings):
+    model_config = ConfigDict(env_file=".env")
+
     DATABASE_URL: str
     SECRET_KEY: str
     ALGORITHM: str
@@ -13,9 +17,7 @@ class Settings(BaseSettings):
     MAIL_PORT: int
     LOG_LEVEL: str = "INFO"
     LOG_DIR: str = "logs"
-    CORS_ORIGINS: list = ["http://localhost:3000"]
+    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
-    class Config:
-        env_file = ".env"
 
 settings = Settings()

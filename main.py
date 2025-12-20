@@ -3,6 +3,7 @@ import time
 from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.exceptions import RequestValidationError
 from routers import auth, users
+from contextlib import asynccontextmanager
 
 # Import all models for SQLAlchemy relationship resolution
 import models  # This triggers the imports in models/__init__.py
@@ -29,13 +30,21 @@ setup_logging(
 
 logger = get_logger(__name__)
 
+# Lifecycle events logging 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Application startup complete", extra={"event": "startup"})
+    yield
+    logger.info("Application shutting down", extra={"event": "shutdown"})
+
 
 app = FastAPI(
     title="E-Commerce API",
     description="Backend API for e-commerce platform",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 
@@ -90,15 +99,6 @@ async def log_requests(request: Request, call_next):
 # Add request ID middleware
 app.add_middleware(RequestIDMiddleware)
 
-
-# Lifecycle event handlers
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Application startup complete", extra={"event": "startup"})
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("Application shutting down", extra={"event": "shutdown"})
 
 
 # Health check

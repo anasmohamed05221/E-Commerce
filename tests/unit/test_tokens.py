@@ -5,7 +5,7 @@ from datetime import timedelta
 from time import sleep
 import pytest
 
-def test_access_token_creation():
+def test_create_access_token():
     test_token = TokenService.create_access_token(email="user@example.com", user_id=1, role="customer")
     assert test_token
 
@@ -17,7 +17,7 @@ def test_access_token_creation():
     assert payload["exp"]
 
 
-def test_refresh_token_creation():
+def test_create_refresh_token():
     test_token = TokenService.create_refresh_token(email="user@example.com", user_id=1, role="customer")[0]
     assert test_token
 

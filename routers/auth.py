@@ -54,8 +54,8 @@ async def login_for_access_token(request: Request, db: db_dependency, form_data:
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 @limiter.limit("3/minute")
-async def create_user(request: Request, body: CreateUserRequest, db: db_dependency):
-    user = AuthService.create_user(body, db)
+async def create_user(request: Request, body: CreateUserRequest, db: db_dependency, bg: BackgroundTasks):
+    user = AuthService.create_user(body, db, bg)
 
     logger.info(
         "User registered successfully",

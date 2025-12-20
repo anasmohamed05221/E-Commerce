@@ -1,5 +1,6 @@
 from utils.hashing import verify_password, get_password_hash
 from models.users import User
+from schemas.auth_schemas import CreateUserRequest
 from sqlalchemy.orm import Session
 from utils.verification import generate_verification_code, get_code_expiry_time
 from services.email_service import send_email
@@ -12,42 +13,7 @@ logger = get_logger(__name__)
 class AuthService:
 
     @staticmethod
-    def authenticate_user(email: str, password: str, db: Session):
-        user = db.query(User).filter(email==User.email).first()
-        
-        if not user:
-            return False
-        
-        if not user.is_active:
-            return False
-        
-        if not verify_password(password, user.hashed_password):
-            # Log failed password verification
-            logger.debug(
-                "Password verification failed",
-                extra={"user_id": user.id, "email": email}
-            )
-            return False
-
-        if not user.is_verified:
-            # Log unverified email attempt
-            logger.warning(
-                "Login attempt with unverified email",
-                extra={"user_id": user.id, "email": email}
-            )
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email not verified. Please check your inbox.")
-
-        # Log successful authentication
-        logger.debug(
-            "User authenticated successfully",
-            extra={"user_id": user.id, "email": email}
-        )
-            
-        return user
-
-    @staticmethod
-    def create_user(request, db: Session, bg: BackgroundTasks):
+    def create_user(request: CreateUserRequest, db: Session, bg: BackgroundTasks):
         """
         Creates a new user and sends verification email.
         
@@ -105,9 +71,44 @@ class AuthService:
         return model
 
 
+    @staticmethod
+    def authenticate_user(email: str, password: str, db: Session):
+        user = db.query(User).filter(email==User.email).first()
+        
+        if not user:
+            return False
+        
+        if not user.is_active:
+            return False
+        
+        if not verify_password(password, user.hashed_password):
+            # Log failed password verification
+            logger.debug(
+                "Password verification failed",
+                extra={"user_id": user.id, "email": email}
+            )
+            return False
 
+        if not user.is_verified:
+            # Log unverified email attempt
+            logger.warning(
+                "Login attempt with unverified email",
+                extra={"user_id": user.id, "email": email}
+            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email not verified. Please check your inbox.")
+
+        # Log successful authentication
+        logger.debug(
+            "User authenticated successfully",
+            extra={"user_id": user.id, "email": email}
+        )
+            
+        return user
+
+        
     @staticmethod
     def get_active_user_by_id(db: Session, user_id: int) -> User | None:
-        model = db.query(User).filter(User.id==user.get("user_id") and User.is_active==True).one_or_none()
+        model = db.query(User).filter(User.id == user_id, User.is_active == True).one_or_none()
 
         return model

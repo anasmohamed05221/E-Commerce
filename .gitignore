@@ -26,3 +26,5 @@ dist/
 
 # Testing db
 /test.db
+
+/.agent

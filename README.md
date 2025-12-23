@@ -24,6 +24,14 @@ The project follows a **3-Tier Service Layer Architecture** to ensure separation
 *   **Dependency Injection:** Used for database sessions and current user validation.
 *   **Middleware:** Centralized error handling, logging, and rate limiting.
 
+## 🧪 Test Structure
+
+- api/: HTTP contract & endpoint behavior
+- integration/: multi-layer & DB-backed flows
+- middleware/: cross-cutting concerns
+- unit/: pure business logic
+
+Tests are designed to protect critical business flows, ensure system reliability, and comprehensively cover functional scenarios and technical edge cases.
 
 ## 🗺️ Roadmap & Features
 

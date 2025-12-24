@@ -26,6 +26,18 @@ router = APIRouter(
 )
 
 
+@router.post("/", status_code=status.HTTP_201_CREATED)
+@limiter.limit("3/minute")
+async def create_user(request: Request, body: CreateUserRequest, db: db_dependency, bg: BackgroundTasks):
+    user = AuthService.create_user(body, db, bg)
+
+    logger.info(
+        "User registered successfully",
+        extra={"user_id": user.id, "email": user.email}
+    )
+
+    return {"message": "Registration successful. Please check your email for verification code."}
+    
 
 @router.post("/token", response_model=Token)
 @limiter.limit("5/minute")
@@ -51,18 +63,6 @@ async def login_for_access_token(request: Request, db: db_dependency, form_data:
 
     return token
 
-
-@router.post("/", status_code=status.HTTP_201_CREATED)
-@limiter.limit("3/minute")
-async def create_user(request: Request, body: CreateUserRequest, db: db_dependency, bg: BackgroundTasks):
-    user = AuthService.create_user(body, db, bg)
-
-    logger.info(
-        "User registered successfully",
-        extra={"user_id": user.id, "email": user.email}
-    )
-
-    return {"message": "Registration successful. Please check your email for verification code."}
 
 
 @router.post("/verify", status_code=status.HTTP_200_OK)

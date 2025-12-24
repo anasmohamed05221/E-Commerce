@@ -8,7 +8,7 @@ from jose import jwt
 from core.config import settings
 import hashlib
 from fastapi import HTTPException
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 def create_test_user(session):
     """Helper to create a verified user for token tests."""
@@ -166,7 +166,7 @@ def test_expired_token_fails_refresh(session):
     db_token = RefreshToken(
         user_id=user.id,
         token_hash=token_hash,
-        expires_at=datetime.utcnow() - timedelta(seconds=1)  # Already expired
+        expires_at=datetime.now(UTC) - timedelta(seconds=1)  # Already expired
     )
     session.add(db_token)
     session.commit()

@@ -21,5 +21,6 @@ def get_user_id(request: Request):
 
 limiter = Limiter(
     key_func=get_user_id,
+    enabled=settings.ENV != "testing",
     default_limits=["200/hour"]
 )

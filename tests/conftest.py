@@ -1,3 +1,6 @@
+import os
+os.environ["ENV"] = "testing"
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine

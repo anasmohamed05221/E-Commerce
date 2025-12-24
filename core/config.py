@@ -5,6 +5,8 @@ from pydantic import ConfigDict
 class Settings(BaseSettings):
     model_config = ConfigDict(env_file=".env")
 
+    ENV: str = "development"
+    
     DATABASE_URL: str
     SECRET_KEY: str
     ALGORITHM: str

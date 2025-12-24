@@ -40,7 +40,7 @@ class AuthService:
         expiry = get_code_expiry_time()
 
         model = User(
-            email=request.email, 
+            email=request.email.lower().strip(), 
             first_name=request.first_name, 
             last_name=request.last_name,
             hashed_password=get_password_hash(request.password),

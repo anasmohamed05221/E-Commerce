@@ -14,7 +14,7 @@ class User(Base):
     refresh_tokens = relationship("RefreshToken", back_populates="user")
     
     
-    email = Column(String, unique=True, nullable=False)
+    email = Column(String(255), unique=True, nullable=False)
     first_name = Column(String)
     last_name = Column(String)
     hashed_password = Column(String, nullable=False)

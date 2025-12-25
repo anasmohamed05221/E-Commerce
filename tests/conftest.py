@@ -6,7 +6,8 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator
-
+from utils.hashing import get_password_hash
+from models.users import User
 from main import app
 from core.database import Base
 from utils.deps import get_db
@@ -70,3 +71,23 @@ async def client(session: Session):
     
     # Clean up
     app.dependency_overrides.clear()
+
+
+
+@pytest.fixture
+def verified_user(session):
+    """Create a verified, active user for testing authentication."""
+
+    user = User(
+        email="exampleuser@email.com",
+        first_name="Example",
+        last_name="User",
+        hashed_password=get_password_hash("TestPassword123!"),
+        phone_number="+201111111111",
+        is_verified=True,
+        is_active=True
+    )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user

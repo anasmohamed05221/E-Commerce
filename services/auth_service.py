@@ -7,6 +7,8 @@ from services.email_service import send_email
 from fastapi import HTTPException, BackgroundTasks
 from starlette import status
 from utils.logger import get_logger
+from schemas.auth_schemas import VerifyEmailRequest
+from datetime import datetime, timezone
 
 logger = get_logger(__name__)
 
@@ -76,18 +78,29 @@ class AuthService:
         user = db.query(User).filter(email==User.email).first()
         
         if not user:
-            return False
+            logger.warning(
+            "Login failed - user not found",
+            extra={"email": email}
+            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate user.")
         
         if not user.is_active:
-            return False
+            logger.warning(
+            "Login failed - inactive account",
+            extra={"email": email}
+            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate user.")
         
         if not verify_password(password, user.hashed_password):
             # Log failed password verification
-            logger.debug(
-                "Password verification failed",
+            logger.warning(
+                "Login failed - invalid password",
                 extra={"user_id": user.id, "email": email}
             )
-            return False
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate user.")
 
         if not user.is_verified:
             # Log unverified email attempt
@@ -106,7 +119,36 @@ class AuthService:
             
         return user
 
-        
+    @staticmethod
+    def verify_user(body: VerifyEmailRequest, db: Session):
+        user = db.query(User).filter(body.email == User.email).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found")
+
+        if not user.is_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account inactive")
+
+        if user.is_verified:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already verified")
+
+        if body.code != user.verification_code:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid verification code")
+
+        if user.verification_code_expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification code expired")
+
+        user.is_verified = True
+        user.verification_code = user.verification_code_expires_at = None
+
+        db.add(user)
+        db.commit()
+
+        return user
     @staticmethod
     def get_active_user_by_id(db: Session, user_id: int) -> User | None:
         model = db.query(User).filter(User.id == user_id, User.is_active == True).one_or_none()

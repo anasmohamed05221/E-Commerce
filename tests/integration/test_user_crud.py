@@ -30,7 +30,7 @@ def test_create_user(session):
     assert db_user.email == created_user.email
 
 
-def test_duplicate_email_raises_error(session):
+def test_create_user_duplicate_email(session):
     """Test that duplicate email registration fails."""
 
     user_data = CreateUserRequest(
@@ -51,7 +51,7 @@ def test_duplicate_email_raises_error(session):
     assert "already registered" in exc_info.value.detail.lower()
 
 
-def test_authenticate_user(session):
+def test_authenticate_user_success(session):
     """Test user authentication with correct credentials."""
 
     user_data = CreateUserRequest(
@@ -73,7 +73,7 @@ def test_authenticate_user(session):
 
 
 
-def test_unverified_user_cannot_login(session):
+def test_login_unverified_user(session):
     """Test that unverified users cannot authenticate."""
 
     user_data = CreateUserRequest(
@@ -114,13 +114,12 @@ def test_authenticate_user_wrong_password(session):
     session.commit()
 
     # Attempt login with wrong password
-    authenticated_user = AuthService.authenticate_user("wrong@example.com", "WRONGPASSWORD00", session)
-    # Assert returns False (not HTTPException)
-    assert not authenticated_user
+    with pytest.raises(HTTPException) as exc_info:
+        authenticated_user = AuthService.authenticate_user("wrong@example.com", "WRONGPASSWORD00", session)
+    assert exc_info.value.status_code == 401
 
 
-
-def test_inactive_user_cannot_login(session):
+def test_login_inactive_user(session):
     """Test that deactivated users cannot authenticate."""
     
     user_data = CreateUserRequest(
@@ -139,10 +138,9 @@ def test_inactive_user_cannot_login(session):
     session.commit()
 
     # Attempt login
-    authenticated_user = AuthService.authenticate_user("inactive_test@example.com", "SecurePass123!", session)
-    # Assert returns False (not HTTPException)
-    assert not authenticated_user
-
+    with pytest.raises(HTTPException) as exc_info:
+        authenticated_user = AuthService.authenticate_user("inactive_test@example.com", "SecurePass123!", session)
+    assert exc_info.value.status_code == 401
 
 
 def test_get_user_by_email(session):

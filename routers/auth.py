@@ -44,15 +44,6 @@ async def create_user(request: Request, body: CreateUserRequest, db: db_dependen
 async def login_for_access_token(request: Request, db: db_dependency, form_data: OAuth2PasswordRequestForm = Depends()):
     user = AuthService.authenticate_user(form_data.username, form_data.password, db)
 
-    if not user:
-        # Log failed login attempt
-        logger.warning(
-            "Login failed - invalid credentials",
-            extra={"email": form_data.username}
-        )
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate user.")
-    
     token = TokenService.create_tokens(user.email, user.id, user.role, db)
 
     # Log successful login
@@ -77,32 +68,7 @@ def verify_email(request: Request, body: VerifyEmailRequest, db: db_dependency):
     - Code matches
     - Code not expired
     """
-    user = db.query(User).filter(body.email == User.email).first()
-
-    if not user: 
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-        detail="User not found")
-
-    if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account inactive")
-
-    if user.is_verified:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Email already verified")
-
-    if body.code != user.verification_code:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Invalid verification code")
-
-    if user.verification_code_expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Verification code expired")
-
-    user.is_verified = True
-    user.verification_code = user.verification_code_expires_at = None
-
-    db.add(user)
-    db.commit()
+    user = AuthService.verify_user(body, db)
 
     # Log successful verification
     logger.info(

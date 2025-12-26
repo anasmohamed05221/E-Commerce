@@ -26,7 +26,6 @@ async def test_register_success(client, session):
     assert user.verification_code_expires_at.replace(tzinfo=timezone.utc) > datetime.now(UTC)
 
 
-
 async def test_register_duplicate(client, session):
     """Test duplicate email registration is declined."""
     response = await client.post("/auth/", json={

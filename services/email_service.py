@@ -9,6 +9,14 @@ logger = get_logger(__name__)
 
 
 def send_email(to_email: str, subject: str, body: str):
+    # Skip email sending in test environment
+    if settings.ENV == "testing":
+        logger.info(
+            "[TEST MODE] Email skipped",
+            extra={"recipient": to_email, "subject": subject}
+        )
+        return
+    
     # Log email attempt
     logger.debug(
         "Attempting to send email",

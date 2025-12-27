@@ -1,7 +1,7 @@
 # Environments
-.env
+.env*
 .venv/
-.env.local
+
 
 # Python
 __pycache__/
@@ -14,6 +14,12 @@ __pycache__/
 .vscode/
 *.swp
 *.swo
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
 
 # Logs
 logs/

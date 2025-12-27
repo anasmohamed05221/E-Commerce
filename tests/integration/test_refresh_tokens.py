@@ -1,5 +1,4 @@
 import pytest
-from tests.conftest import session
 from services.token_service import TokenService
 from models.users import User
 from models.refresh_tokens import RefreshToken

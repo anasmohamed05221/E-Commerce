@@ -1,7 +1,5 @@
-from tests.conftest import session, client, verified_user
 from models.users import User
 from utils.hashing import get_password_hash
-import pytest
 from jose import jwt
 from core.config import settings
 

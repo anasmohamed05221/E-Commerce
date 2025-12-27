@@ -23,14 +23,6 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 from core.database import Base
 
-from models.users import User
-from models.orders import Order
-from models.order_items import OrderItem
-from models.categories import Category
-from models.products import Product
-from models.cart_items import CartItem
-from models.inventory_changes import InventoryChange
-from models.refresh_tokens import RefreshToken
 
 
 target_metadata = Base.metadata

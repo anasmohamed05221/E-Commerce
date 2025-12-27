@@ -1,7 +1,6 @@
 from core.database import Base
-from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from sqlalchemy import (Column, Integer, ForeignKey ,Numeric, Enum, DateTime)
+from sqlalchemy import (Column, Integer, ForeignKey ,Numeric, Enum)
 from .mixins import CreatedAtMixin, UpdatedAtMixin
 
 class Order(Base, CreatedAtMixin, UpdatedAtMixin):

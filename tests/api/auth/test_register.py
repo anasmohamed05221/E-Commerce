@@ -1,6 +1,4 @@
-from tests.conftest import session, client
 from models.users import User
-import pytest
 from datetime import datetime, UTC, timezone
 
 async def test_register_success(client, session):

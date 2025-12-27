@@ -1,6 +1,5 @@
 from core.database import Base
-from sqlalchemy.sql import func
-from sqlalchemy import (Column, Integer, ForeignKey, DateTime)
+from sqlalchemy import (Column, Integer, ForeignKey)
 from sqlalchemy.orm import relationship
 from .mixins import CreatedAtMixin
 

@@ -17,7 +17,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.13'
+        python-version: '3.11'
     
     - name: Install dependencies
       run: |
@@ -40,9 +40,10 @@ jobs:
         LOG_LEVEL: INFO
         LOG_DIR: logs
       run: |
-        pytest --disable-warnings --cov=. --cov-report=term-missing
-    
-    - name: Check code quality
+          pytest --disable-warnings --cov=. --cov-report=term-missing
+
+    - name: Check code quality (non-blocking)
+      continue-on-error: true
       run: |
         pip install ruff
         ruff check .

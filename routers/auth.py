@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Request, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
-from utils.deps import db_dependency, user_dependency
+from utils.deps import db_dependency
 from starlette import status
 from schemas.auth_schemas import (Token, VerifyEmailRequest, CreateUserRequest, ForgotPasswordRequest
 ,RevokeTokenRequest, RefreshTokenRequest, ResetPasswordRequest)
@@ -10,9 +10,8 @@ from models.users import User
 from datetime import datetime, timezone
 from utils.hashing import get_password_hash
 from services.email_service import send_email
-from pydantic import EmailStr
 import secrets
-from datetime import datetime, timezone, timedelta
+from datetime import timedelta
 from middleware.rate_limiter import limiter
 from utils.logger import get_logger
 

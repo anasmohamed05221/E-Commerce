@@ -1,7 +1,5 @@
-import pytest
-from tests.conftest import session, client
 from models.users import User
-from datetime import datetime, timezone, timedelta, UTC
+from datetime import datetime, timedelta, UTC
 
 async def register_user(client, email, first_name="Test", last_name="User"):
     """Helper to register a user for testing."""

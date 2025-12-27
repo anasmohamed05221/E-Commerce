@@ -6,7 +6,6 @@ from routers import auth, users
 from contextlib import asynccontextmanager
 
 # Import all models for SQLAlchemy relationship resolution
-import models  # This triggers the imports in models/__init__.py
 
 # Rate limiter imports
 from slowapi import _rate_limit_exceeded_handler

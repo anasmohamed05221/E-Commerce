@@ -188,4 +188,4 @@ def test_deactivate_user(session):
     assert db_user.is_active is False
 
     searched = AuthService.get_active_user_by_id(session, db_user.id)
-    assert  searched == None
+    assert  searched is None

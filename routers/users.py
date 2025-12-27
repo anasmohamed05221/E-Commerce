@@ -1,10 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Request, BackgroundTasks
+from fastapi import APIRouter, HTTPException, status, Request, BackgroundTasks
 from utils.deps import user_dependency, db_dependency
 from services.email_service import send_email
 from models.users import User
 from utils.hashing import verify_password, get_password_hash
 from schemas.auth_schemas import ChangePasswordRequest, DeactivateUserRequest
-from core.config import settings
 from services.token_service import TokenService
 from services.auth_service import AuthService
 from datetime import datetime, timezone, timedelta
@@ -188,7 +187,7 @@ async def deny_password_change(token: str, db: db_dependency, bg: BackgroundTask
     
     to_email=model.email
     subject="Security Alert: Password Change Denied"
-    email_body=f"""
+    email_body="""
     A password change request for your account was denied.
     
     All active sessions have been logged out for security.

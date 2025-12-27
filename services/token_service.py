@@ -7,7 +7,6 @@ from jose import jwt, JWTError
 from models.refresh_tokens import RefreshToken
 from models.users import User
 from core.config import settings
-from services.auth_service import AuthService
 
 
 class TokenService:

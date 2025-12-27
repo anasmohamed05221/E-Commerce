@@ -40,8 +40,7 @@ jobs:
         LOG_LEVEL: INFO
         LOG_DIR: logs
       run: |
-          pytest --disable-warnings --cov=. --cov-report=term-missing
-
+          pytest --disable-warnings -v
     - name: Check code quality (non-blocking)
       continue-on-error: true
       run: |

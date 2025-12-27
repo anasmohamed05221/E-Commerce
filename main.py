@@ -32,6 +32,12 @@ logger = get_logger(__name__)
 # Lifecycle events logging 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.ENV == "production" and not limiter.enabled:
+        raise RuntimeError(
+            "CRITICAL: Rate limiter is disabled in production! "
+            "Check ENV configuration."
+        )
+
     logger.info("Application startup complete", extra={"event": "startup"})
     yield
     logger.info("Application shutting down", extra={"event": "shutdown"})

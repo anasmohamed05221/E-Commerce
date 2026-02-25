@@ -42,8 +42,9 @@ Example:
       "price": 250.00,
       "stock": 12,
       "image_url": "...",
-      "category_id": 3,
-      "created_at": "2026-02-18T10:00:00"
+      "rating": 4.7,
+      "category_id": 3
+      
     }
   ],
   "limit": 20,
@@ -65,6 +66,7 @@ Example:
 ## Notes
 
 - `price` is returned as a numeric value.
+- `rating` may be null if the product has no rating yet.
 - `created_at` is an ISO 8601 datetime string.
 - `total` reflects the count after filters are applied.
 

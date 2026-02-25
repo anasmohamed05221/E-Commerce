@@ -21,8 +21,17 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-from core.database import Base
 
+
+from core.database import Base
+import models.users
+import models.products
+import models.categories
+import models.cart_items
+import models.orders
+import models.order_items
+import models.inventory_changes
+import models.refresh_tokens
 
 
 target_metadata = Base.metadata

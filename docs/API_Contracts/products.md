@@ -67,7 +67,6 @@ Example:
 
 - `price` is returned as a numeric value.
 - `rating` may be null if the product has no rating yet.
-- `created_at` is an ISO 8601 datetime string.
 - `total` reflects the count after filters are applied.
 
 ---

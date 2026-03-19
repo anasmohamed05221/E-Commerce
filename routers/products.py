@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Query, HTTPException, status
+from fastapi import APIRouter, Query, HTTPException, status, Request
 from typing import Optional
 from decimal import Decimal
-from schemas.products import ProductListOut
+from schemas.products import ProductListOut, ProductDetailOut
 from services.product_service import ProductService
 from utils.deps import db_dependency
 from middleware.rate_limiter import limiter
@@ -16,7 +16,7 @@ router = APIRouter(
 @router.get("/", response_model=ProductListOut)
 @limiter.limit("60/minute")
 async def get_products(
-    db: db_dependency,
+    db: db_dependency, request: Request,
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     category_id: Optional[int] = Query(default=None),
@@ -30,3 +30,12 @@ async def get_products(
     items, total = ProductService.get_products(db, limit, offset, category_id, min_price, max_price)
 
     return ProductListOut(items=items, limit=limit, offset=offset, total=total)
+
+
+@router.get("/{product_id}", response_model=ProductDetailOut)
+@limiter.limit("60/minute")
+async def get_product_details(db: db_dependency, request: Request, product_id: int):
+    product = ProductService.get_product_by_id(db, product_id)
+    if product is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+    return product

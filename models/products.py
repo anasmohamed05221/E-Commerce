@@ -18,7 +18,7 @@ class Product(Base, CreatedAtMixin, UpdatedAtMixin):
     cart_items = relationship("CartItem", back_populates="product")
     inventory_changes = relationship("InventoryChange", back_populates="product")
 
-    name = Column(String)
+    name = Column(String, nullable=False)
     description = Column(String)
     price = Column(Numeric(10, 2), nullable=False)
     image_url = Column(String)

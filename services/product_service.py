@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from decimal import Decimal
 from models.products import Product
 from typing import Optional
@@ -25,3 +25,8 @@ class ProductService:
         items = query.offset(offset).limit(limit).all()
 
         return items, total
+
+    @staticmethod
+    def get_product_by_id(db: Session, product_id: int) -> Optional[Product]:
+        product_model = db.query(Product).options(joinedload(Product.category)).filter(Product.id==product_id).first()
+        return product_model

@@ -8,6 +8,8 @@ from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator
 from utils.hashing import get_password_hash
 from models.users import User
+from models.categories import Category
+from models.products import Product
 from main import app
 from core.database import Base
 from utils.deps import get_db
@@ -91,3 +93,20 @@ def verified_user(session):
     session.commit()
     session.refresh(user)
     return user
+
+
+@pytest.fixture
+def seed_products(session):
+    """Seed data specifically for API testing."""
+    category = Category(name="Electronics", description="Tech gear")
+    session.add(category)
+    session.commit()
+    session.refresh(category)
+    p1 = Product(name="Laptop", price=1000.00, stock=5, category_id=category.id)
+    p2 = Product(name="Mouse", price=50.00, stock=20, category_id=category.id)
+    
+    session.add_all([p1, p2])
+    session.commit()
+    
+    # Return so tests can access their IDs
+    return [p1, p2]

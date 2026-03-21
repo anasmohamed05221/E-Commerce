@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 
 class CategoryOut(BaseModel):
     id: int

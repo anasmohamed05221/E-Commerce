@@ -13,7 +13,7 @@ router = APIRouter(
 )
 
 
-@router.get("/", response_model=ProductListOut)
+@router.get("/", response_model=ProductListOut, status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
 async def get_products(
     db: db_dependency, request: Request,
@@ -32,7 +32,7 @@ async def get_products(
     return ProductListOut(items=items, limit=limit, offset=offset, total=total)
 
 
-@router.get("/{product_id}", response_model=ProductDetailOut)
+@router.get("/{product_id}", response_model=ProductDetailOut, status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
 async def get_product_details(db: db_dependency, request: Request, product_id: int):
     product = ProductService.get_product_by_id(db, product_id)

@@ -2,7 +2,7 @@
 import time
 from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.exceptions import RequestValidationError
-from routers import auth, users, products
+from routers import auth, users, products, categories
 from contextlib import asynccontextmanager
 
 # Import all models for SQLAlchemy relationship resolution
@@ -150,6 +150,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(products.router)
+app.include_router(categories.router)
 
 
 # Add rate limiter to the app

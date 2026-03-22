@@ -12,5 +12,5 @@ class Category(Base, CreatedAtMixin):
     #relationships
     products = relationship("Product", back_populates="category")
 
-    name = Column(String, nullable=False)
+    name = Column(String, unique=True, index=True, nullable=False)
     description = Column(String)

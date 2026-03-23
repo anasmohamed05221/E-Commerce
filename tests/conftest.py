@@ -13,6 +13,8 @@ from models.products import Product
 from main import app
 from core.database import Base
 from utils.deps import get_db
+from unittest.mock import AsyncMock
+from core.redis_client import redis_client
 
 # SYNC SQLite for testing (matches sync service layer)
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
@@ -28,6 +30,26 @@ TestingSessionLocal = sessionmaker(
     bind=engine
 )
 
+
+@pytest.fixture(autouse=True)
+def mock_redis_for_tests():
+    """
+    Automatically intercept the redis client before EVERY test.
+    We inject a fake 'AsyncMock' object that simulates a Cache Miss
+    so the tests always hit the SQLite test database smoothly.
+    """
+    # Create a fake redis object
+    fake_redis = AsyncMock()
+    # Tell the fake .get() method to return None (Cache Miss)
+    fake_redis.get.return_value = None
+    
+    # Temporarily attach it to your application's redis_client
+    redis_client.redis = fake_redis
+    
+    yield  # Let the test run!
+    
+    # Cleanup after the test finishes
+    redis_client.redis = None
 
 @pytest.fixture
 def session() -> Generator[Session, None, None]:

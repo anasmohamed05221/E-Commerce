@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.exceptions import RequestValidationError
 from routers import auth, users, products, categories
 from contextlib import asynccontextmanager
+from core.redis_client import redis_client
 
 # Import all models for SQLAlchemy relationship resolution
 
@@ -32,6 +33,8 @@ logger = get_logger(__name__)
 # Lifecycle events logging 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Connecting to Redis...")
+    await redis_client.connect()
     if settings.ENV == "production" and not limiter.enabled:
         raise RuntimeError(
             "CRITICAL: Rate limiter is disabled in production! "
@@ -40,6 +43,8 @@ async def lifespan(app: FastAPI):
 
     logger.info("Application startup complete", extra={"event": "startup"})
     yield
+    logger.info("Disconnecting from Redis...")
+    await redis_client.disconnect()
     logger.info("Application shutting down", extra={"event": "shutdown"})
 
 

@@ -13,5 +13,5 @@ router = APIRouter(
 @router.get("/", response_model=list[CategoryOut], status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
 async def get_categories(db: db_dependency, request: Request):
-    categories = CategoryService.get_categories(db)
+    categories = await CategoryService.get_categories(db)
     return categories

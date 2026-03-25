@@ -9,6 +9,7 @@ logger = get_logger(__name__)
 
 
 def send_email(to_email: str, subject: str, body: str):
+    """Send an HTML email via SMTP. Skipped in test environment."""
     # Skip email sending in test environment
     if settings.ENV == "testing":
         logger.info(

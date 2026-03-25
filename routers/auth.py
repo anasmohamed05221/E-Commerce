@@ -28,6 +28,7 @@ router = APIRouter(
 @router.post("/", status_code=status.HTTP_201_CREATED)
 @limiter.limit("3/minute")
 async def create_user(request: Request, body: CreateUserRequest, db: db_dependency, bg: BackgroundTasks):
+    """Register a new user and send verification email."""
     user = AuthService.create_user(body, db, bg)
 
     logger.info(
@@ -41,6 +42,7 @@ async def create_user(request: Request, body: CreateUserRequest, db: db_dependen
 @router.post("/token", response_model=Token)
 @limiter.limit("5/minute")
 async def login_for_access_token(request: Request, db: db_dependency, form_data: OAuth2PasswordRequestForm = Depends()):
+    """Authenticate user and return access + refresh token pair."""
     user = AuthService.authenticate_user(form_data.username, form_data.password, db)
 
     token = TokenService.create_tokens(user.email, user.id, user.role, db)

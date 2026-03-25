@@ -23,6 +23,7 @@ async def get_products(
     min_price: Optional[Decimal] = Query(default=None, ge=0),
     max_price: Optional[Decimal] = Query(default=None, ge=0)
     ):
+    """List products with optional filtering by category and price range."""
     if (min_price is not None and max_price is not None) and (min_price>max_price):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         detail="min_price must be less than or equal to max_price")
@@ -35,6 +36,7 @@ async def get_products(
 @router.get("/{product_id}", response_model=ProductDetailOut, status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
 async def get_product_details(db: db_dependency, request: Request, product_id: int):
+    """Get detailed product information by ID."""
     product = ProductService.get_product_by_id(db, product_id)
     if product is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")

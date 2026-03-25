@@ -10,6 +10,7 @@ logger = get_logger(__name__)
 class CategoryService:
     @staticmethod
     async def get_categories(db: Session) -> list[Category]:
+        """Fetch all categories, using Redis cache when available."""
         cache_key = "categories:all"
 
         # Ask Redis if it has the data

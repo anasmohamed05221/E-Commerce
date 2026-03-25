@@ -3,11 +3,14 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from core.config import settings
 from utils.logger import get_logger
+import logging
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
 
 # Setup logger
 logger = get_logger(__name__)
 
-
+@retry(stop=stop_after_attempt(3), retry=retry_if_exception_type(smtplib.SMTPException),
+       wait=wait_exponential(min=1, max=10), before_sleep=before_sleep_log(logger, logging.WARNING))
 def send_email(to_email: str, subject: str, body: str):
     """Send an HTML email via SMTP. Skipped in test environment."""
     # Skip email sending in test environment
@@ -37,28 +40,14 @@ def send_email(to_email: str, subject: str, body: str):
     message.attach(MIMEText(html, "html"))
 
     # Send email via SMTP
-    try:
-        with smtplib.SMTP(settings.MAIL_SERVER, settings.MAIL_PORT) as server:
-            server.starttls()  # Upgrade to secure connection
-            server.login(settings.MAIL_USERNAME, settings.MAIL_PASSWORD)
-            server.sendmail(settings.MAIL_FROM, to_email, message.as_string())
 
-        # Log success
-        logger.info(
-            "Email sent successfully",
-            extra={"recipient": to_email, "subject": subject}
-        )
+    with smtplib.SMTP(settings.MAIL_SERVER, settings.MAIL_PORT) as server:
+        server.starttls()  # Upgrade to secure connection
+        server.login(settings.MAIL_USERNAME, settings.MAIL_PASSWORD)
+        server.sendmail(settings.MAIL_FROM, to_email, message.as_string())
 
-    except smtplib.SMTPException as e:
-        # Log error with full details
-        logger.error(
-            f"Failed to send email: {str(e)}",
-            extra={
-                "recipient": to_email,
-                "subject": subject,
-                "error": str(e),
-                "error_type": type(e).__name__
-            },
-            exc_info=True  # Include stack trace
-        )
-        raise
+    # Log success
+    logger.info(
+        "Email sent successfully",
+        extra={"recipient": to_email, "subject": subject}
+    )

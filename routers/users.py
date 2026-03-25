@@ -1,11 +1,10 @@
 from fastapi import APIRouter, HTTPException, status, Request, BackgroundTasks
-from utils.deps import user_dependency, db_dependency
+from utils.deps import db_dependency, active_user_dependency
 from services.email_service import send_email
 from models.users import User
 from utils.hashing import verify_password, get_password_hash
 from schemas.auth_schemas import ChangePasswordRequest, DeactivateUserRequest
 from services.token_service import TokenService
-from services.auth_service import AuthService
 from datetime import datetime, timezone, timedelta
 import secrets
 from middleware.rate_limiter import limiter
@@ -22,37 +21,27 @@ router = APIRouter(
 
 @router.get("/me", status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute")
-async def get_user_info(request: Request, user: user_dependency, db: db_dependency):
+async def get_user_info(request: Request, current_user: active_user_dependency, db: db_dependency):
     """
     Get current user info (protected endpoint).
     """
-    model = AuthService.get_active_user_by_id(db=db, user_id=user.get("user_id"))
-
-    if not model:
-        raise HTTPException(status_code=404, detail="User not found")
-
     return {
-        "id": model.id,
-        "email": model.email,
-        "first_name": model.first_name,
-        "last_name": model.last_name,
-        "phone_number": model.phone_number
+        "id": current_user.id,
+        "email": current_user.email,
+        "first_name": current_user.first_name,
+        "last_name": current_user.last_name,
+        "phone_number": current_user.phone_number
     }
 
 
 @router.put("/me/password", status_code=status.HTTP_200_OK)
 @limiter.limit("2/minute")
 async def change_password_request(request: Request, body: ChangePasswordRequest,
-    user: user_dependency, db: db_dependency, bg: BackgroundTasks):
+    current_user: active_user_dependency, db: db_dependency, bg: BackgroundTasks):
     """
     Request password change. Sends confirmation email.
     """
-    model = AuthService.get_active_user_by_id(db=db, user_id=user.get("user_id"))
-    
-    if not model:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    if not verify_password(body.current_password, model.hashed_password):
+    if not verify_password(body.current_password, current_user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Incorrect current password")
 
@@ -60,9 +49,9 @@ async def change_password_request(request: Request, body: ChangePasswordRequest,
     confirmation_token = secrets.token_urlsafe(32)
     
     # Store pending change
-    model.pending_password_hash = get_password_hash(body.new_password)
-    model.password_change_token = confirmation_token
-    model.password_change_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+    current_user.pending_password_hash = get_password_hash(body.new_password)
+    current_user.password_change_token = confirmation_token
+    current_user.password_change_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
     
     db.commit()
 
@@ -71,7 +60,7 @@ async def change_password_request(request: Request, body: ChangePasswordRequest,
     deny_url = f"http://localhost:8000/users/deny-password-change?token={confirmation_token}"
 
     
-    to_email=model.email
+    to_email=current_user.email
     subject="Confirm Password Change"
     email_body=f"""
     <html>
@@ -204,21 +193,18 @@ async def deny_password_change(token: str, db: db_dependency, bg: BackgroundTask
 
 @router.delete("/deactivate", status_code=status.HTTP_200_OK)
 @limiter.limit("3/minute")
-async def deactivate_user(request: Request, body: DeactivateUserRequest, user: user_dependency, db: db_dependency):
-    model = AuthService.get_active_user_by_id(db, user.get("user_id"))
+async def deactivate_user(request: Request, body: DeactivateUserRequest, current_user: active_user_dependency, db: db_dependency):
+    """Deactivate user account and revoke all sessions (protected endpoint)."""
 
-    if not model:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    if not verify_password(plain_password=body.password, hashed_password=model.hashed_password):
+    if not verify_password(plain_password=body.password, hashed_password=current_user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Incorrect password")
 
     # Revoke all tokens to end user sessions
-    TokenService.revoke_all_user_tokens(model.id, db)
+    TokenService.revoke_all_user_tokens(current_user.id, db)
 
     # Deactivate user
-    model.is_active = False
+    current_user.is_active = False
     db.commit()
 
     logger.info("User Deactivated")

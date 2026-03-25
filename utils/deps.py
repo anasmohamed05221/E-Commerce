@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 from starlette import status
 from core.config import settings
+from services.auth_service import AuthService
+from models.users import User
 
 def get_db():
     db = SessionLocal()
@@ -41,3 +43,15 @@ def get_current_user(token: Annotated[str, Depends(OAuth2PasswordBearer(tokenUrl
 
 
 user_dependency = Annotated[dict, Depends(get_current_user)]
+
+
+def get_current_active_user(db: db_dependency, user: user_dependency):
+    current_user = AuthService.get_active_user_by_id(db=db, user_id=user.get("user_id"))
+
+    if current_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return current_user
+
+
+active_user_dependency = Annotated[User, Depends(get_current_active_user)]

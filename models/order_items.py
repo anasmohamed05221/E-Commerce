@@ -18,5 +18,5 @@ class OrderItem(Base):
 
 
     price_at_time = Column(Numeric(10, 2), nullable=False)
-    quantity = Column(Integer)
+    quantity = Column(Integer, nullable=False)
     subtotal = Column(Numeric(10, 2))

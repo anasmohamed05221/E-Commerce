@@ -22,5 +22,5 @@ class Product(Base, CreatedAtMixin, UpdatedAtMixin):
     description = Column(String)
     price = Column(Numeric(10, 2), nullable=False)
     image_url = Column(String)
-    stock = Column(Integer)
+    stock = Column(Integer, nullable=False)
     rating = Column(Float, nullable=True)

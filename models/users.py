@@ -15,8 +15,8 @@ class User(Base):
     
     
     email = Column(String(255), unique=True, nullable=False)
-    first_name = Column(String)
-    last_name = Column(String)
+    first_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True) 
     """is_active = False means:

@@ -10,7 +10,7 @@ class Product(Base, CreatedAtMixin, UpdatedAtMixin):
     id = Column(Integer, primary_key=True, index=True)
 
     #fk
-    category_id = Column(Integer, ForeignKey("categories.id"))
+    category_id = Column(Integer, ForeignKey("categories.id"), index=True)
     
     #relationships
     order_items = relationship("OrderItem", back_populates="product")
@@ -20,7 +20,7 @@ class Product(Base, CreatedAtMixin, UpdatedAtMixin):
 
     name = Column(String, nullable=False)
     description = Column(String)
-    price = Column(Numeric(10, 2), nullable=False)
+    price = Column(Numeric(10, 2), nullable=False, index=True)
     image_url = Column(String)
     stock = Column(Integer, nullable=False)
     rating = Column(Float, nullable=True)

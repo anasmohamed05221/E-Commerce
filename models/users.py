@@ -10,7 +10,7 @@ class User(Base):
 
     #relationships
     orders = relationship("Order", back_populates="user")
-    cart_items = relationship("CartItem", back_populates="user")
+    cart_items = relationship("CartItem", back_populates="user", passive_deletes=True)
     refresh_tokens = relationship("RefreshToken", back_populates="user")
     
     

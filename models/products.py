@@ -15,7 +15,7 @@ class Product(Base, CreatedAtMixin, UpdatedAtMixin):
     #relationships
     order_items = relationship("OrderItem", back_populates="product")
     category = relationship("Category", back_populates="products")
-    cart_items = relationship("CartItem", back_populates="product")
+    cart_items = relationship("CartItem", back_populates="product", passive_deletes=True)
     inventory_changes = relationship("InventoryChange", back_populates="product")
 
     name = Column(String, nullable=False)

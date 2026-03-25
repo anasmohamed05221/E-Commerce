@@ -114,7 +114,7 @@ app.add_middleware(RequestIDMiddleware)
 # Health check
 @app.get("/health")
 async def health_check():
-    logger.info("Health check ping recieved", extra={"status": "ok"})
+    logger.info("Health check ping received", extra={"status": "ok"})
     return {"status": "Healthy", "timestamp": time.time()}
 
 

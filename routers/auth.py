@@ -58,7 +58,7 @@ async def login_for_access_token(request: Request, db: db_dependency, form_data:
 
 
 @router.post("/verify", status_code=status.HTTP_200_OK)
-@limiter.limit("10/minute")
+@limiter.limit("3/minute")
 def verify_email(request: Request, body: VerifyEmailRequest, db: db_dependency):
     """
     Verifies user's email with the provided code.

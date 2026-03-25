@@ -2,7 +2,7 @@
 import time
 from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.exceptions import RequestValidationError
-from routers import auth, users, products, categories
+from routers import auth, users, products, categories, cart
 from contextlib import asynccontextmanager
 from core.redis_client import redis_client
 
@@ -156,6 +156,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(products.router)
 app.include_router(categories.router)
+app.include_router(cart.router)
 
 
 # Add rate limiter to the app

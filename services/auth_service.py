@@ -53,7 +53,11 @@ class AuthService:
         )
 
         db.add(model)
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
         subject = "Verify Your Email - E-commerce App"
         email_body=f"""
@@ -148,7 +152,11 @@ class AuthService:
         user.verification_code = user.verification_code_expires_at = None
 
         db.add(user)
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
         return user
     @staticmethod

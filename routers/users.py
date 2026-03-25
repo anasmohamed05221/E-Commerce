@@ -52,8 +52,12 @@ async def change_password_request(request: Request, body: ChangePasswordRequest,
     current_user.pending_password_hash = get_password_hash(body.new_password)
     current_user.password_change_token = confirmation_token
     current_user.password_change_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
-    
-    db.commit()
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
     # Send confirmation email
     confirm_url = f"http://localhost:8000/users/confirm-password-change?token={confirmation_token}"
@@ -136,12 +140,16 @@ async def confirm_password_change(token: str, db: db_dependency):
     model.pending_password_hash = None
     model.password_change_token = None
     model.password_change_expires_at = None
-    
-    db.commit()
-    
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
     # Revoke all refresh tokens (force re-login everywhere)
     TokenService.revoke_all_user_tokens(model.id, db)
-    
+
     return {"message": "Password updated successfully. Please login again."}
 
 
@@ -166,9 +174,13 @@ async def deny_password_change(token: str, db: db_dependency, bg: BackgroundTask
     model.pending_password_hash = None
     model.password_change_token = None
     model.password_change_expires_at = None
-    
-    db.commit()
-    
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
     # Revoke all refresh tokens (logout attacker)
     TokenService.revoke_all_user_tokens(model.id, db)
     
@@ -205,7 +217,11 @@ async def deactivate_user(request: Request, body: DeactivateUserRequest, current
 
     # Deactivate user
     current_user.is_active = False
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
     logger.info("User Deactivated")
 

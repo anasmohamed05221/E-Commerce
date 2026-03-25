@@ -104,8 +104,12 @@ class TokenService:
             expires_at=expires_at
         )
         db.add(db_refresh_token)
-        db.commit()
-        
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
@@ -181,8 +185,12 @@ class TokenService:
 
             # Revoke old token (token rotation)
             db_token.revoked = True
-            db.commit()
-            
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+                raise
+
             # Create new token pair
             return TokenService.create_tokens(email, user_id, role, db)
             
@@ -218,8 +226,12 @@ class TokenService:
                 
                 if db_token:
                     db_token.revoked = True
-                    db.commit()
-                    
+                    try:
+                        db.commit()
+                    except Exception:
+                        db.rollback()
+                        raise
+
         except JWTError:
             pass  # Token already invalid, nothing to revoke
     
@@ -236,4 +248,8 @@ class TokenService:
             RefreshToken.user_id == user_id,
             RefreshToken.revoked == False
         ).update({"revoked": True})
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise

@@ -22,7 +22,6 @@ class CartProductOut(BaseModel):
 
 class CartItemOut(BaseModel):
     id: int
-    product_id: int
     product: CartProductOut
     quantity: int
     

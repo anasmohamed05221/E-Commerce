@@ -17,4 +17,4 @@ class InventoryChange(Base, CreatedAtMixin):
 
 
     change_amount = Column(Integer)
-    reason = Column(Enum("increment", "decrement", name="reason"))
+    reason = Column(Enum("sale", "restock", "adjustment", "return", "cancellation", name="reason"))

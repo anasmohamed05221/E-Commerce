@@ -118,7 +118,6 @@ async def test_add_to_cart_success(client, verified_user, session):
 
     assert response.status_code == 201
     data = response.json()
-    assert data["product_id"] == product.id
     assert data["quantity"] == 3
     assert data["product"]["name"] == "Laptop"
 

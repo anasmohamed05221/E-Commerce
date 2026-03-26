@@ -17,7 +17,7 @@
 
 ## 📌 What This Is
 
-A fully hand-written backend for an e-commerce platform — **no scaffolding, no boilerplate generators**. Every model, service, route, migration, and test is written intentionally to learn and demonstrate real backend engineering.
+A hands-on built backend for an e-commerce platform — **no scaffolding, no boilerplate generators**. Every model, service, route, migration, and test is written intentionally to learn and demonstrate real backend engineering.
 
 > 🚧 **Active Development** — Core commerce features (cart, orders, checkout) are being built now.
 

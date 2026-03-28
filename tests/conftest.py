@@ -118,17 +118,35 @@ def verified_user(session):
 
 
 @pytest.fixture
-def seed_products(session):
-    """Seed data specifically for API testing."""
+def test_category(session):
+    """Create a reusable test category."""
     category = Category(name="Electronics", description="Tech gear")
     session.add(category)
     session.commit()
     session.refresh(category)
-    p1 = Product(name="Laptop", price=1000.00, stock=5, category_id=category.id)
-    p2 = Product(name="Mouse", price=50.00, stock=20, category_id=category.id)
-    
+    return category
+
+
+@pytest.fixture
+def product_factory(session, test_category):
+    """Factory fixture to create test products with custom attributes."""
+    def _create(*, name="Laptop", price=1000.00, stock=10):
+        product = Product(name=name, price=price, stock=stock, category_id=test_category.id)
+        session.add(product)
+        session.commit()
+        session.refresh(product)
+        return product
+    return _create
+
+
+@pytest.fixture
+def seed_products(session, test_category):
+    """Seed multiple products for API testing."""
+    p1 = Product(name="Laptop", price=1000.00, stock=5, category_id=test_category.id)
+    p2 = Product(name="Mouse", price=50.00, stock=20, category_id=test_category.id)
+
     session.add_all([p1, p2])
     session.commit()
-    
+
     # Return so tests can access their IDs
     return [p1, p2]

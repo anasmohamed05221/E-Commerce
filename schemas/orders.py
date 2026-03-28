@@ -1,14 +1,8 @@
 from pydantic import BaseModel
+from models.enums import OrderStatus
 from decimal import Decimal
-from enum import Enum
 from datetime import datetime
 from typing import Optional
-
-class OrderStatus(Enum):
-    PENDING = "pending"
-    CONFIRMED = "confirmed"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
 
 
 class OrderProductOut(BaseModel):

@@ -2,6 +2,7 @@ from core.database import Base
 from sqlalchemy import (Column, Integer, ForeignKey, Enum)
 from sqlalchemy.orm import relationship
 from .mixins import CreatedAtMixin
+from .enums import InventoryChangeReason
 
 class InventoryChange(Base, CreatedAtMixin):
     __tablename__ = "inventory_changes"
@@ -17,4 +18,4 @@ class InventoryChange(Base, CreatedAtMixin):
 
 
     change_amount = Column(Integer)
-    reason = Column(Enum("sale", "restock", "adjustment", "return", "cancellation", name="reason"))
+    reason = Column(Enum(InventoryChangeReason))

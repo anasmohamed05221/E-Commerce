@@ -1,7 +1,7 @@
 import pytest
 from models.categories import Category
 from models.products import Product
-from services.product_service import ProductService
+from services.products import ProductService
 
 def test_get_products_with_pagination(session):
     """Test that ProductService.get_products respects limit and calculates total correctly."""

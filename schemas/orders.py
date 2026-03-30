@@ -50,3 +50,10 @@ class OrderSummaryOut(BaseModel):
     model_config = {
         'from_attributes': True
     }
+
+
+class OrderListOut(BaseModel):
+    items: list[OrderSummaryOut]
+    limit: int
+    offset: int
+    total: int

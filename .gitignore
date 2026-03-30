@@ -30,9 +30,7 @@ build/
 dist/
 *.egg-info/
 
-# Testing db
-/test.db
-
+# Agents
 /.agent
 claude.md
 /.claude

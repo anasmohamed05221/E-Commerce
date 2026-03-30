@@ -106,7 +106,9 @@ Example:
   "category": {
     "id": 3,
     "name": "Clothes"
-  }
+  },
+  "created_at": "2026-01-15T10:00:00",
+  "updated_at": "2026-01-15T10:00:00"
 }
 
 ---

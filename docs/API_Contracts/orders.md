@@ -1,0 +1,156 @@
+# Orders API Contract
+
+This document defines the API contract for order-related endpoints in the MVP version of the E-Commerce backend.
+
+---
+
+# 1. List Orders
+
+## Request
+
+**GET** `/orders/`
+
+## Query Parameters (all optional)
+
+- `limit` (int, default `10`, min `1`, max `50`)
+- `offset` (int, default `0`, min `0`)
+
+## Validation Rules
+
+- `limit` must be between 1 and 50.
+- `offset` must be ≥ 0.
+
+---
+
+## Response (200 OK)
+
+Example:
+
+{
+  "items": [
+    {
+      "id": 1,
+      "total_amount": 1050.00,
+      "status": "pending",
+      "created_at": "2026-03-30T10:00:00"
+    }
+  ],
+  "limit": 10,
+  "offset": 0,
+  "total": 1
+}
+
+---
+
+## Response Fields
+
+- `items`: list of order summary objects.
+- `limit`: number of items requested.
+- `offset`: number of items skipped.
+- `total`: total number of orders for the current user (used for pagination UI).
+
+---
+
+## Notes
+
+- Returns only orders belonging to the authenticated user.
+- Orders are returned newest first (ordered by `created_at DESC`).
+- An empty list returns `200 OK` with `items: []`, not `404`.
+
+---
+
+## Errors
+
+- `401 Unauthorized` — user is not authenticated.
+- `422 Unprocessable Entity` — invalid query parameter types or validation rule violations.
+
+---
+
+# 2. Order Detail
+
+## Request
+
+**GET** `/orders/{order_id}`
+
+- `order_id` (int, required, path parameter)
+
+---
+
+## Response (200 OK)
+
+Example:
+
+{
+  "id": 1,
+  "total_amount": 1050.00,
+  "status": "pending",
+  "items": [
+    {
+      "id": 1,
+      "product": {
+        "id": 3,
+        "name": "Laptop",
+        "price": 1000.00,
+        "image_url": "..."
+      },
+      "price_at_time": 1000.00,
+      "quantity": 1,
+      "subtotal": 1000.00
+    }
+  ],
+  "created_at": "2026-03-30T10:00:00",
+  "updated_at": "2026-03-30T10:00:00"
+}
+
+---
+
+## Notes
+
+- Ownership is enforced: a user can only view their own orders.
+- `price_at_time` reflects the product price at the moment of purchase (price snapshot), not the current product price.
+- Items include full product details.
+
+---
+
+## Errors
+
+- `401 Unauthorized` — user is not authenticated.
+- `404 Not Found` — order does not exist or belongs to another user.
+
+---
+
+# 3. Cancel Order
+
+## Request
+
+**POST** `/orders/{order_id}/cancel`
+
+- `order_id` (int, required, path parameter)
+- No request body.
+
+---
+
+## Response (200 OK)
+
+Returns the updated order in full `OrderOut` format (same as Order Detail response above), with `status` set to `"cancelled"`.
+
+---
+
+## Notes
+
+- Only orders with status `PENDING` can be cancelled.
+- On successful cancellation:
+  - Order status is set to `CANCELLED`.
+  - Stock is restored for each order item.
+  - An `InventoryChange` record is logged per item with `reason="cancellation"`.
+  - The entire operation is atomic — if any step fails, the whole transaction rolls back.
+- Ownership is enforced: a user can only cancel their own orders.
+- Concurrent cancel requests on the same order are safe: pessimistic locking ensures only one succeeds.
+
+---
+
+## Errors
+
+- `401 Unauthorized` — user is not authenticated.
+- `404 Not Found` — order does not exist or belongs to another user.
+- `409 Conflict` — order is not in `PENDING` status (already cancelled, completed, etc.).

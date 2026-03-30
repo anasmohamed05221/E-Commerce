@@ -5,3 +5,10 @@ class OrderStatus(str, Enum):
     CONFIRMED = "confirmed"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+
+class InventoryChangeReason(str, Enum):
+    SALE = "sale"
+    RESTOCK = "restock"
+    ADJUSTMENT = "adjustment"
+    RETURN = "return"
+    CANCELLATION = "cancellation"

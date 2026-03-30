@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, HTTPException, status
+from fastapi import APIRouter, Request, status
 from schemas.categories import CategoryOut
 from services.categories import CategoryService
 from utils.deps import db_dependency

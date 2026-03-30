@@ -1,13 +1,13 @@
 from utils.hashing import verify_password, get_password_hash
 from models.users import User
-from schemas.auth_schemas import CreateUserRequest
+from schemas.auth import CreateUserRequest
 from sqlalchemy.orm import Session
 from utils.verification import generate_verification_code, get_code_expiry_time
-from services.email_service import send_email
+from services.email import send_email
 from fastapi import HTTPException, BackgroundTasks
 from starlette import status
 from utils.logger import get_logger
-from schemas.auth_schemas import VerifyEmailRequest
+from schemas.auth import VerifyEmailRequest
 from datetime import datetime, timezone
 
 logger = get_logger(__name__)
@@ -144,7 +144,7 @@ class AuthService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid verification code")
 
-        if user.verification_code_expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        if user.verification_code_expires_at.astimezone(timezone.utc) < datetime.now(timezone.utc):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
             detail="Verification code expired")
 
@@ -162,6 +162,6 @@ class AuthService:
     @staticmethod
     def get_active_user_by_id(db: Session, user_id: int) -> User | None:
         """Fetch an active user by ID, or return None if not found or inactive."""
-        model = db.query(User).filter(User.id == user_id, User.is_active == True).one_or_none()
+        model = db.query(User).filter(User.id == user_id, User.is_active).one_or_none()
 
         return model

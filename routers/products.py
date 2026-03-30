@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, Request, Depends
 from schemas.products import ProductListOut, ProductDetailOut, ProductFilterParams
-from services.product_service import ProductService
+from services.products import ProductService
 from utils.deps import db_dependency
 from middleware.rate_limiter import limiter
 
@@ -17,7 +17,7 @@ async def get_products(
     db: db_dependency, request: Request,
     filters: ProductFilterParams = Depends()
     ):
-    """List products with optional filtering by category and price range."""
+    """List products with pagination and optional filtering by category and price range."""
     items, total = ProductService.get_products(
         db, filters.limit, filters.offset, filters.category_id, filters.min_price, filters.max_price
     )

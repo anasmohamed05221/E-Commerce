@@ -1,4 +1,4 @@
-from services.token_service import TokenService
+from services.token import TokenService
 from jose import jwt, JWTError
 from core.config import settings
 from datetime import timedelta

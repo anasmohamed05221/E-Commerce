@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 from starlette import status
 from core.config import settings
-from services.auth_service import AuthService
+from services.auth import AuthService
 from models.users import User
 
 def get_db():

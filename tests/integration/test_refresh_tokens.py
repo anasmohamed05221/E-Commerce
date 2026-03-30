@@ -1,5 +1,5 @@
 import pytest
-from services.token_service import TokenService
+from services.token import TokenService
 from models.users import User
 from models.refresh_tokens import RefreshToken
 from utils.hashing import get_password_hash

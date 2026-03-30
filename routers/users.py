@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException, status, Request, BackgroundTasks
 from utils.deps import db_dependency, active_user_dependency
-from services.email_service import send_email
+from services.email import send_email
 from models.users import User
 from utils.hashing import verify_password, get_password_hash
-from schemas.auth_schemas import ChangePasswordRequest, DeactivateUserRequest
-from services.token_service import TokenService
+from schemas.auth import ChangePasswordRequest, DeactivateUserRequest
+from services.token import TokenService
 from datetime import datetime, timezone, timedelta
 import secrets
 from middleware.rate_limiter import limiter

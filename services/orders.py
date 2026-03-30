@@ -72,7 +72,7 @@ class OrderService:
 
         try:
            db.commit()
-        except:
+        except Exception:
             logger.error("Order cancellation commit failed", extra={"user_id": user_id, "order_id": order_id})
             db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

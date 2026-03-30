@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, Request, Depends
 from schemas.products import ProductListOut, ProductDetailOut, ProductFilterParams
-from services.product_service import ProductService
+from services.products import ProductService
 from utils.deps import db_dependency
 from middleware.rate_limiter import limiter
 

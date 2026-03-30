@@ -1,7 +1,7 @@
 from models.users import User
 from models.refresh_tokens import RefreshToken
 from utils.hashing import get_password_hash
-from services.token_service import TokenService
+from services.token import TokenService
 from datetime import datetime, timedelta, UTC
 from jose import jwt
 from core.config import settings

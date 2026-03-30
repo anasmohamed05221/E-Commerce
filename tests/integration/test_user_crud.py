@@ -1,7 +1,7 @@
 import pytest
 from models.users import User
-from schemas.auth_schemas import CreateUserRequest
-from services.auth_service import AuthService
+from schemas.auth import CreateUserRequest
+from services.auth import AuthService
 from fastapi import BackgroundTasks, HTTPException
 
 

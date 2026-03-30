@@ -1,13 +1,13 @@
 from utils.hashing import verify_password, get_password_hash
 from models.users import User
-from schemas.auth_schemas import CreateUserRequest
+from schemas.auth import CreateUserRequest
 from sqlalchemy.orm import Session
 from utils.verification import generate_verification_code, get_code_expiry_time
-from services.email_service import send_email
+from services.email import send_email
 from fastapi import HTTPException, BackgroundTasks
 from starlette import status
 from utils.logger import get_logger
-from schemas.auth_schemas import VerifyEmailRequest
+from schemas.auth import VerifyEmailRequest
 from datetime import datetime, timezone
 
 logger = get_logger(__name__)

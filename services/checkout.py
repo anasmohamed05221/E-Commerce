@@ -6,6 +6,7 @@ from models.cart_items import CartItem
 from models.products import Product
 from services.cart import CartService
 from models.inventory_changes import InventoryChange
+from models.enums import InventoryChangeReason
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -68,7 +69,7 @@ class CheckoutService:
             order_item = OrderItem(order_id=order.id, product_id=product.id, price_at_time=product.price, 
                                    quantity=item.quantity, subtotal=(product.price*item.quantity))
             order_items.append(order_item)
-            inventory_change = InventoryChange(product_id=product.id, change_amount=-item.quantity, reason="sale")
+            inventory_change = InventoryChange(product_id=product.id, change_amount=-item.quantity, reason=InventoryChangeReason.SALE)
             inventory_changes.append(inventory_change)
             product.stock -= item.quantity
         return (order_items, inventory_changes)

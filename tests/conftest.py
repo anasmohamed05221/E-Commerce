@@ -10,19 +10,19 @@ from utils.hashing import get_password_hash
 from models.users import User
 from models.categories import Category
 from models.products import Product
+from services.cart import CartService
+from services.checkout import CheckoutService
 from main import app
 from core.database import Base
+from core.config import settings
 from utils.deps import get_db
 from unittest.mock import AsyncMock
 from core.redis_client import redis_client
 
-# SYNC SQLite for testing (matches sync service layer)
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+# SYNC PostgreSql for testing (matches sync service layer)
+SQLALCHEMY_DATABASE_URL = settings.TEST_DATABASE_URL
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False}
-)
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 TestingSessionLocal = sessionmaker(
     autocommit=False,
@@ -150,3 +150,15 @@ def seed_products(session, test_category):
 
     # Return so tests can access their IDs
     return [p1, p2]
+
+
+@pytest.fixture
+def order_factory(session, verified_user, product_factory):
+    def _create(products_and_quantities=None):
+        if products_and_quantities is None:
+            products_and_quantities = [(product_factory(), 2)]
+        for product, quantity in products_and_quantities:
+            CartService.add_to_cart(session, verified_user.id, product.id, quantity)
+        
+        return CheckoutService.checkout(session, verified_user.id)
+    return _create

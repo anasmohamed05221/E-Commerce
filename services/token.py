@@ -173,7 +173,7 @@ class TokenService:
                 )
             
             # Check expiry
-            if db_token.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+            if db_token.expires_at.astimezone(timezone.utc) < datetime.now(timezone.utc):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Token expired"

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, status, Request
-from schemas.cart import *
+from schemas.cart import CartOut, CartItemOut, CartItemCreate, CartItemUpdate
 from utils.deps import db_dependency, active_user_dependency
 from services.cart import CartService
 from middleware.rate_limiter import limiter

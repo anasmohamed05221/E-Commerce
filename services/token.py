@@ -163,7 +163,7 @@ class TokenService:
             token_hash = hashlib.sha256(jti.encode()).hexdigest()
             db_token = db.query(RefreshToken).filter(
                 RefreshToken.token_hash == token_hash,
-                RefreshToken.revoked == False
+                RefreshToken.revoked == False  # noqa: E712
             ).first()
             
             if not db_token:
@@ -246,7 +246,7 @@ class TokenService:
         """
         db.query(RefreshToken).filter(
             RefreshToken.user_id == user_id,
-            RefreshToken.revoked == False
+            RefreshToken.revoked == False  # noqa: E712
         ).update({"revoked": True})
         try:
             db.commit()

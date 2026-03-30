@@ -162,6 +162,6 @@ class AuthService:
     @staticmethod
     def get_active_user_by_id(db: Session, user_id: int) -> User | None:
         """Fetch an active user by ID, or return None if not found or inactive."""
-        model = db.query(User).filter(User.id == user_id, User.is_active == True).one_or_none()
+        model = db.query(User).filter(User.id == user_id, User.is_active).one_or_none()
 
         return model

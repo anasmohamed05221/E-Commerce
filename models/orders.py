@@ -18,6 +18,6 @@ class Order(Base, CreatedAtMixin, UpdatedAtMixin):
     items = relationship("OrderItem", back_populates="order")
 
     total_amount = Column(Numeric(10, 2), nullable=False)
-    status = Column(Enum(OrderStatus), default=OrderStatus.PENDING)
+    status = Column(Enum(OrderStatus, values_callable=lambda obj: [e.value for e in obj], name="order_status"), default=OrderStatus.PENDING)
     
 

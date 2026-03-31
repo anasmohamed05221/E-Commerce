@@ -12,3 +12,7 @@ class InventoryChangeReason(str, Enum):
     ADJUSTMENT = "adjustment"
     RETURN = "return"
     CANCELLATION = "cancellation"
+
+class UserRole(str, Enum):
+    CUSTOMER = "customer"
+    ADMIN = "admin"

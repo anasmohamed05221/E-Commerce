@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from decimal import Decimal
 from typing import Optional
 from schemas.categories import CategoryOut
@@ -65,3 +65,21 @@ class ProductDetailOut(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+
+class ProductCreate(BaseModel):
+    name: str
+    price: Decimal = Field(ge=0.00)
+    stock: int = Field(ge=0)
+    category_id: int
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    price: Optional[Decimal] = Field(default=None, ge=0.00)
+    stock: Optional[int] = Field(default=None, ge=0)
+    category_id: Optional[int] = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None

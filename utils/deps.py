@@ -65,7 +65,7 @@ active_user_dependency = Annotated[User, Depends(get_current_active_user)]
 def get_current_active_admin(db: db_dependency, current_user: active_user_dependency):
     if current_user.role != UserRole.ADMIN:
         logger.warning(
-            "Unauthorized admin access attempt",
+            "Non-admin access attempt on admin endpoint",
             extra={"user_id": current_user.id, "email": current_user.email, "role": current_user.role}
         )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: You do not have permission to perform this action.")
@@ -74,3 +74,17 @@ def get_current_active_admin(db: db_dependency, current_user: active_user_depend
 
 
 admin_dependency = Annotated[User, Depends(get_current_active_admin)]
+
+
+def get_current_active_customer(db: db_dependency, current_user: active_user_dependency):
+    if current_user.role != UserRole.CUSTOMER:
+        logger.warning(
+            "Non-customer access attempt on customer endpoint",
+            extra={"user_id": current_user.id, "email": current_user.email, "role": current_user.role}
+        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: You do not have permission to perform this action.")
+    
+    return current_user
+
+
+customer_dependency = Annotated[User, Depends(get_current_active_customer)]

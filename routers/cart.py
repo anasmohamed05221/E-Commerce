@@ -1,6 +1,6 @@
 from fastapi import APIRouter, status, Request
 from schemas.cart import CartOut, CartItemOut, CartItemCreate, CartItemUpdate
-from utils.deps import db_dependency, active_user_dependency
+from utils.deps import db_dependency, customer_dependency
 from services.cart import CartService
 from middleware.rate_limiter import limiter
 from utils.logger import get_logger
@@ -15,7 +15,7 @@ router = APIRouter(
 
 @router.get("/", response_model=CartOut, status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
-async def get_cart(request: Request, db: db_dependency, current_user: active_user_dependency):
+async def get_cart(request: Request, db: db_dependency, current_user: customer_dependency):
     """
     View current user's cart (protected endpoint).
     """
@@ -29,7 +29,7 @@ async def get_cart(request: Request, db: db_dependency, current_user: active_use
 
 @router.post("/", response_model=CartItemOut, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
-async def add_to_cart(request: Request, db: db_dependency, current_user: active_user_dependency, new_item: CartItemCreate):
+async def add_to_cart(request: Request, db: db_dependency, current_user: customer_dependency, new_item: CartItemCreate):
     """
     Add item to current user's cart (protected endpoint).
     """
@@ -43,7 +43,7 @@ async def add_to_cart(request: Request, db: db_dependency, current_user: active_
 
 @router.patch("/{product_id}", response_model=CartItemOut, status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
-async def update_cart_item(request: Request, db: db_dependency, current_user: active_user_dependency, product_id: int, update: CartItemUpdate):
+async def update_cart_item(request: Request, db: db_dependency, current_user: customer_dependency, product_id: int, update: CartItemUpdate):
     """
     Update item quantity (protected endpoint).
     """
@@ -56,7 +56,7 @@ async def update_cart_item(request: Request, db: db_dependency, current_user: ac
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 @limiter.limit("10/minute")
-async def remove_from_cart(request: Request, db: db_dependency, current_user: active_user_dependency, product_id: int):
+async def remove_from_cart(request: Request, db: db_dependency, current_user: customer_dependency, product_id: int):
     """
     Remove item from cart
     """

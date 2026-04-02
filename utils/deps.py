@@ -8,6 +8,10 @@ from starlette import status
 from core.config import settings
 from services.auth import AuthService
 from models.users import User
+from models.enums import UserRole
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 def get_db():
     db = SessionLocal()
@@ -38,6 +42,7 @@ def get_current_user(token: Annotated[str, Depends(OAuth2PasswordBearer(tokenUrl
         return {"email": email, "user_id": user_id, "user_role": user_role}
 
     except JWTError:
+        logger.warning("JWT validation failed - invalid or expired token")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Could not validate credentials.")
 
@@ -55,3 +60,31 @@ def get_current_active_user(db: db_dependency, user: user_dependency):
 
 
 active_user_dependency = Annotated[User, Depends(get_current_active_user)]
+
+
+def get_current_active_admin(db: db_dependency, current_user: active_user_dependency):
+    if current_user.role != UserRole.ADMIN:
+        logger.warning(
+            "Non-admin access attempt on admin endpoint",
+            extra={"user_id": current_user.id, "email": current_user.email, "role": current_user.role}
+        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: You do not have permission to perform this action.")
+    
+    return current_user
+
+
+admin_dependency = Annotated[User, Depends(get_current_active_admin)]
+
+
+def get_current_active_customer(db: db_dependency, current_user: active_user_dependency):
+    if current_user.role != UserRole.CUSTOMER:
+        logger.warning(
+            "Non-customer access attempt on customer endpoint",
+            extra={"user_id": current_user.id, "email": current_user.email, "role": current_user.role}
+        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: You do not have permission to perform this action.")
+    
+    return current_user
+
+
+customer_dependency = Annotated[User, Depends(get_current_active_customer)]

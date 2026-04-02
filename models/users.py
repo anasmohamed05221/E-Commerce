@@ -1,6 +1,7 @@
 from core.database import Base
-from sqlalchemy import (Column, Integer, String, Boolean, DateTime)
+from sqlalchemy import (Column, Integer, String, Boolean, DateTime, Enum)
 from sqlalchemy.orm import relationship
+from .enums import UserRole
 
 class User(Base):
     __tablename__ = "users"
@@ -24,7 +25,7 @@ class User(Base):
     - User is treated as deleted / deactivated
     - User is excluded from all business logic
     """
-    role = Column(String, default="customer")
+    role = Column(Enum(UserRole, values_callable=lambda obj: [e.value for e in obj], name="userrole"), default=UserRole.CUSTOMER)
     phone_number = Column(String)
     # Email verification fields
     is_verified = Column(Boolean, default=False, nullable=False)

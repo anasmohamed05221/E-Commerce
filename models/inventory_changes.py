@@ -18,4 +18,4 @@ class InventoryChange(Base, CreatedAtMixin):
 
 
     change_amount = Column(Integer)
-    reason = Column(Enum(InventoryChangeReason))
+    reason = Column(Enum(InventoryChangeReason, values_callable=lambda obj: [e.value for e in obj], name="reason"))

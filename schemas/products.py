@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from decimal import Decimal
 from typing import Optional
 from schemas.categories import CategoryOut
@@ -83,3 +83,9 @@ class ProductUpdate(BaseModel):
     category_id: Optional[int] = None
     description: Optional[str] = None
     image_url: Optional[str] = None
+    
+    @model_validator(mode="after")
+    def not_all_fields_empty(self):
+        if not self.model_fields_set:
+            raise ValueError("At least one field must be provided for update")
+        return self

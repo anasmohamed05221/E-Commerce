@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ E-Commerce Backend API
+# E-Commerce Backend API
 
 **Production-grade e-commerce REST API built from scratch with FastAPI**
 
@@ -15,15 +15,15 @@
 
 ---
 
-## 📌 What This Is
+## What This Is
 
 A hands-on built backend for an e-commerce platform — **no scaffolding, no boilerplate generators**. Every model, service, route, migration, and test is written intentionally to learn and demonstrate real backend engineering.
 
-> 🚧 **Active Development** — Core commerce features (cart, orders, checkout) are being built now.
+> **Active Development** — Core MVP is complete (auth, products, cart, orders, admin). Docker + deployment are next.
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 Request → Middleware (logging, rate limit, request ID)
@@ -37,67 +37,93 @@ Request → Middleware (logging, rate limit, request ID)
 
 | Pattern | Where |
 |---|---|
-| Dependency Injection | DB sessions, authenticated user context |
+| Dependency Injection | DB sessions, authenticated user context, role guards |
 | Token Rotation | Refresh tokens revoked on reuse |
-| Cache-Aside | Redis → DB fallback for categories |
+| Pessimistic Locking | `SELECT FOR UPDATE` on products during checkout and order cancellation |
+| Atomic Transactions | Checkout: stock decrement + order creation + inventory log in one transaction |
+| Cache-Aside | Redis → DB fallback for categories (1hr TTL) |
 | Soft Deletes | Users deactivated, not destroyed |
-| Historical Pricing | `price_at_time` on order items |
+| Historical Pricing | `price_at_time` on order items (price snapshots at purchase) |
+| Inventory Audit Log | Every stock change recorded with reason |
 
 ---
 
-## 🔐 Auth System
+## Auth System
 
 Full authentication pipeline — not a tutorial copy-paste.
 
 | Feature | Detail |
 |---|---|
 | Registration | Email + password with validation |
-| Email Verification | 6-digit code, time-limited |
+| Email Verification | 6-digit code, 10-minute expiry |
 | Login | JWT access token (15 min) + refresh token (7 days) |
 | Token Rotation | Old refresh token revoked on each refresh |
 | Password Change | Confirmation email with approve/deny links |
 | Password Reset | Forgot-password flow with time-limited token |
 | Logout | Single device or all devices (revoke all tokens) |
 | Account Deactivation | Soft delete + full token revocation |
-| RBAC | Role field on user (customer, admin) |
-| Rate Limiting | Per-endpoint limits (e.g. login: 5/min, register: 3/min) |
+| RBAC | `CUSTOMER` and `ADMIN` roles enforced via dependency injection |
+| Rate Limiting | Per-endpoint limits (login: 5/min, register: 3/min, etc.) |
 
 Tokens are **hashed in the database** (SHA-256 of JTI). Passwords use **bcrypt**.
 
 ---
 
-## 🛒 API Endpoints
+## API Endpoints
 
 ### Auth `/auth`
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/auth/` | Register |
-| `POST` | `/auth/token` | Login |
-| `POST` | `/auth/verify` | Verify email |
-| `POST` | `/auth/refresh` | Refresh tokens |
-| `POST` | `/auth/logout` | Logout |
-| `POST` | `/auth/forgot-password` | Request password reset |
-| `POST` | `/auth/reset-password` | Reset password |
+| Method | Endpoint | Rate Limit | Description |
+|---|---|---|---|
+| `POST` | `/auth/` | 3/min | Register |
+| `POST` | `/auth/token` | 5/min | Login — returns access + refresh tokens |
+| `POST` | `/auth/verify` | 3/min | Verify email with 6-digit code |
+| `POST` | `/auth/refresh` | 10/min | Rotate refresh token |
+| `POST` | `/auth/logout` | 10/min | Revoke refresh token |
+| `POST` | `/auth/forgot-password` | 3/min | Request password reset email |
+| `POST` | `/auth/reset-password` | 5/min | Reset password; revokes all sessions |
 
-### Users `/users` 🔒
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/users/me` | Current user profile |
-| `PUT` | `/users/me/password` | Request password change |
-| `GET` | `/users/confirm-password-change` | Confirm via email link |
-| `GET` | `/users/deny-password-change` | Deny via email link |
-| `DELETE` | `/users/deactivate` | Deactivate account |
+### Users `/users` (authenticated)
+| Method | Endpoint | Rate Limit | Description |
+|---|---|---|---|
+| `GET` | `/users/me` | 30/min | Current user profile |
+| `PUT` | `/users/me/password` | 2/min | Request password change via email confirmation |
+| `GET` | `/users/confirm-password-change` | — | Confirm password change via email link |
+| `GET` | `/users/deny-password-change` | — | Deny password change; revoke all sessions |
+| `DELETE` | `/users/deactivate` | 3/min | Deactivate account |
 
-### Products `/products`
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/products/` | List (paginated, filterable by category/price) |
-| `GET` | `/products/{id}` | Detail with category |
+### Products `/products` (public)
+| Method | Endpoint | Rate Limit | Description |
+|---|---|---|---|
+| `GET` | `/products/` | 60/min | Paginated list; filterable by category, min/max price |
+| `GET` | `/products/{id}` | 60/min | Product detail with category |
 
-### Categories `/categories`
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/categories/` | List all (Redis-cached, 1hr TTL) |
+### Categories `/categories` (public)
+| Method | Endpoint | Rate Limit | Description |
+|---|---|---|---|
+| `GET` | `/categories/` | 60/min | List all (Redis-cached, 1hr TTL) |
+
+### Cart `/cart` (customers only)
+| Method | Endpoint | Rate Limit | Description |
+|---|---|---|---|
+| `GET` | `/cart/` | 60/min | View cart with total price |
+| `POST` | `/cart/` | 10/min | Add item (or increment if already in cart) |
+| `PATCH` | `/cart/{product_id}` | 10/min | Update item quantity |
+| `DELETE` | `/cart/{product_id}` | 10/min | Remove item |
+
+### Orders `/orders` (customers only)
+| Method | Endpoint | Rate Limit | Description |
+|---|---|---|---|
+| `POST` | `/orders/` | 5/min | Checkout — create order from cart; decrements stock |
+| `GET` | `/orders/` | 60/min | List orders (paginated, newest first) |
+| `GET` | `/orders/{id}` | 60/min | Order detail with all line items |
+| `POST` | `/orders/{id}/cancel` | 10/min | Cancel pending order; restores stock |
+
+### Admin Products `/admin/products` (admins only)
+| Method | Endpoint | Rate Limit | Description |
+|---|---|---|---|
+| `POST` | `/admin/products/` | 30/min | Create product |
+| `PATCH` | `/admin/products/{id}` | 30/min | Partial update product |
+| `DELETE` | `/admin/products/{id}` | 30/min | Delete product (blocked if order items exist) |
 
 ### System
 | Method | Endpoint | Description |
@@ -106,58 +132,63 @@ Tokens are **hashed in the database** (SHA-256 of JTI). Passwords use **bcrypt**
 
 ---
 
-## 🗄️ Data Model
+## Data Model
 
 ```
 users ──┬── refresh_tokens
-        ├── orders ── order_items ── products
-        └── cart_items ─────────────── products ── inventory_changes
-                                         └── categories
+        ├── orders ── order_items ── products ── inventory_changes
+        └── cart_items ──────────────── products
+                                          └── categories
 ```
 
-**8 tables** — users, products, categories, orders, order_items, cart_items, refresh_tokens, inventory_changes — managed through **11 Alembic migrations**.
+**8 tables** — users, products, categories, orders, order_items, cart_items, refresh_tokens, inventory_changes — managed through **17 Alembic migrations**.
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ```
 tests/
 ├── unit/           → hashing, tokens, verification, sanitization
-├── integration/    → user CRUD, token rotation, products, categories
+├── integration/    → user CRUD, token rotation, products, categories,
+│                     cart, checkout, orders, admin product service
 ├── api/
 │   ├── auth/       → register, login, logout, verify, refresh, reset
 │   ├── users/      → profile, password change, deactivation
-│   ├── products/   → list, detail
-│   └── categories/ → list
-└── middleware/     → rate limiting
+│   ├── products/   → list, detail, filtering
+│   ├── categories/ → list
+│   ├── cart/       → add, update, remove, view
+│   ├── orders/     → checkout, list, detail, cancel
+│   └── checkout/   → stock validation, atomicity
+└── middleware/     → rate limiting, request ID
 ```
 
-- **27 test files** across 4 layers
+- **160+ test files** across 4 layers
 - SQLite in-memory DB for isolation
 - AsyncMock Redis for cache testing
 - CI runs on every push via **GitHub Actions**
 
 ---
 
-## ⚙️ Tech Stack
+## Tech Stack
 
 | Layer | Tech |
 |---|---|
 | Framework | FastAPI + Uvicorn |
 | Database | PostgreSQL + SQLAlchemy 2.0 + Alembic |
-| Cache | Redis (async) |
+| Cache | Redis (async, cache-aside pattern) |
 | Auth | JWT (python-jose) + Bcrypt (passlib) |
 | Validation | Pydantic v2, email-validator, phonenumbers |
 | Rate Limiting | SlowAPI |
+| Email | SMTP with 3-retry exponential backoff (tenacity) |
 | Logging | Structured JSON logs, rotating file handlers, request ID tracing |
-| Testing | Pytest + pytest-asyncio |
+| Testing | Pytest + pytest-asyncio + httpx |
 | CI/CD | GitHub Actions |
 | Linting | Ruff |
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # Clone
@@ -166,7 +197,7 @@ cd E-Commerce
 
 # Environment
 cp .env.example .env
-# Fill in: DATABASE_URL, SECRET_KEY, MAIL_* credentials
+# Fill in: DATABASE_URL, SECRET_KEY, MAIL_* credentials, REDIS_URL
 
 # Install
 pip install -r requirements.txt
@@ -178,31 +209,63 @@ alembic upgrade head
 uvicorn main:app --reload
 ```
 
+**Key environment variables:**
+
+```env
+DATABASE_URL=postgresql://user:password@localhost/dbname
+SECRET_KEY=your_secret_key_here
+REDIS_URL=redis://localhost:6379/0
+CORS_ORIGINS=["http://localhost:3000"]
+MAIL_USERNAME=your_email@example.com
+MAIL_PASSWORD=your_email_password
+MAIL_SERVER=smtp.gmail.com
+MAIL_PORT=587
+```
+
 ---
 
-## 🗺️ Roadmap
+## Roadmap
 
-### ✅ Done
+### Done
 - [x] User registration, email verification, JWT auth with token rotation
 - [x] Password change (with email confirmation) and reset flows
 - [x] Account deactivation with full token revocation
-- [x] Product catalog — list with pagination/filtering, detail view
+- [x] Product catalog — paginated list with category/price filtering, detail view
 - [x] Categories with Redis caching
+- [x] Shopping cart — add, update, remove, view with real-time total
+- [x] Order checkout — atomic transaction, pessimistic locking, stock decrement
+- [x] Order management — list, detail, cancel with stock restore + inventory log
+- [x] Admin product management — create, update, delete (with referential integrity guard)
+- [x] RBAC — CUSTOMER and ADMIN roles enforced at dependency level
 - [x] Rate limiting, structured logging, request ID tracing
-- [x] RBAC groundwork (role field, middleware-ready)
-- [x] 27-file test suite (unit → integration → API → middleware)
+- [x] 40+ test files (unit, integration, API, middleware)
 - [x] GitHub Actions CI pipeline
 
-### 🔨 Building Now
-- [ ] Shopping cart (DB-backed, schemas + service in progress)
-- [ ] Order & checkout flow
-- [ ] Inventory management (stock tracking model exists)
+### Building Now
+- [ ] Admin order status management
+- [ ] Basic admin user management
+- [ ] Docker + docker-compose setup
+- [ ] Deploy (Epic 1 close)
 
-### 📅 Up Next
-- [ ] Admin endpoints (product/category CRUD, order management)
-- [ ] Payment gateway simulation
-- [ ] Docker containerization
-- [ ] Frontend integration (React/Next.js)
+### Epic 2 — Payments & Async
+- [ ] Stripe payment integration (checkout session + webhook)
+- [ ] Celery + Redis task queue
+- [ ] Order confirmation emails on payment
+- [ ] Inventory update on payment
+- [ ] Shipping address book (pick at checkout)
+- [ ] Coupons / promo codes (fixed + percentage discounts)
+
+### Epic 3 — Engagement Features
+- [ ] Wishlist (add / remove / list)
+- [ ] Reviews & Ratings (purchased-only constraint, auto-update avg rating)
+
+### Epic 4 — Search
+- [ ] Typesense integration
+- [ ] Product search with filters, typo tolerance, and ranking
+
+### Epic 5 — DevOps Improvements
+- [ ] Monitoring and observability
+- [ ] Infrastructure improvements and scaling
 
 ---
 

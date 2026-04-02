@@ -163,7 +163,7 @@ tests/
 └── middleware/     → rate limiting, request ID
 ```
 
-- **160+ test files** across 4 layers
+- **160+ tests** across 4 layers
 - SQLite in-memory DB for isolation
 - AsyncMock Redis for cache testing
 - CI runs on every push via **GitHub Actions**

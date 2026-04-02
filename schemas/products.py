@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 from decimal import Decimal
 from typing import Optional
 from schemas.categories import CategoryOut
@@ -65,3 +65,27 @@ class ProductDetailOut(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+
+class ProductCreate(BaseModel):
+    name: str
+    price: Decimal = Field(ge=0.00)
+    stock: int = Field(ge=0)
+    category_id: int
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    price: Optional[Decimal] = Field(default=None, ge=0.00)
+    stock: Optional[int] = Field(default=None, ge=0)
+    category_id: Optional[int] = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    
+    @model_validator(mode="after")
+    def not_all_fields_empty(self):
+        if not self.model_fields_set:
+            raise ValueError("At least one field must be provided for update")
+        return self

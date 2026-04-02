@@ -10,6 +10,7 @@ from utils.hashing import get_password_hash
 from models.users import User
 from models.categories import Category
 from models.products import Product
+from models.enums import UserRole
 from services.cart import CartService
 from services.checkout import CheckoutService
 from main import app
@@ -100,7 +101,7 @@ async def client(session: Session):
 
 @pytest.fixture
 def verified_user(session):
-    """Create a verified, active user for testing authentication."""
+    """Create a verified, active user."""
 
     user = User(
         email="exampleuser@email.com",
@@ -108,6 +109,26 @@ def verified_user(session):
         last_name="User",
         hashed_password=get_password_hash("TestPassword123!"),
         phone_number="+201111111111",
+        is_verified=True,
+        is_active=True
+    )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+@pytest.fixture
+def verified_admin(session):
+    """Create a verified, active admin."""
+
+    user = User(
+        email="exampleadmin@email.com",
+        first_name="Example",
+        last_name="Admin",
+        hashed_password=get_password_hash("TestPassword123!"),
+        role=UserRole.ADMIN,
+        phone_number="+2012121212121",
         is_verified=True,
         is_active=True
     )

@@ -159,14 +159,15 @@ tests/
 │   ├── categories/ → list
 │   ├── cart/       → add, update, remove, view
 │   ├── orders/     → checkout, list, detail, cancel
+│   ├── admin_products/ → create, update, delete (auth, RBAC, validation)
 │   └── checkout/   → stock validation, atomicity
 └── middleware/     → rate limiting, request ID
 ```
 
-- **160+ tests** across 4 layers
-- SQLite in-memory DB for isolation
-- AsyncMock Redis for cache testing
-- CI runs on every push via **GitHub Actions**
+- **190+ tests** across 4 layers — real PostgreSQL, AsyncMock Redis, CI on every push
+- **Transactional isolation** — tables created once, each test wrapped in a savepoint and rolled back. No DDL per test.
+- **Parallel execution** — `pytest -n 8` via pytest-xdist with filelock-guarded DDL. One worker sets up the schema, all others reuse it.
+- **Result: 70s → 28s (60% faster)**
 
 ---
 
@@ -182,7 +183,7 @@ tests/
 | Rate Limiting | SlowAPI |
 | Email | SMTP with 3-retry exponential backoff (tenacity) |
 | Logging | Structured JSON logs, rotating file handlers, request ID tracing |
-| Testing | Pytest + pytest-asyncio + httpx |
+| Testing | Pytest + pytest-asyncio + httpx + pytest-xdist |
 | CI/CD | GitHub Actions |
 | Linting | Ruff |
 

@@ -4,7 +4,7 @@
 
 **Production-grade e-commerce REST API built from scratch with FastAPI**
 
-![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.121-009688?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-DC382D?logo=redis&logoColor=white)
@@ -193,7 +193,7 @@ tests/
 
 ```bash
 # Prerequisites
-- Python 3.11
+- Python 3.13
 - PostgreSQL (running locally or via Docker)
 - Redis (running locally or via Docker)
 

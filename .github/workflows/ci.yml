@@ -67,7 +67,7 @@ jobs:
         LOG_DIR: logs
         REDIS_URL: redis://localhost:6379/0
       run: |
-        pytest --disable-warnings -v
+        pytest --disable-warnings -v -n auto
 
     - name: Check code quality (non-blocking)
       continue-on-error: true

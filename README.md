@@ -9,7 +9,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-DC382D?logo=redis&logoColor=white)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?logo=sqlalchemy&logoColor=white)
-![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF?logo=githubactions&logoColor=white)
+![CI](https://github.com/anasmohamed05221/E-Commerce/actions/workflows/ci.yml/badge.svg)
 
 </div>
 
@@ -192,6 +192,11 @@ tests/
 ## Quick Start
 
 ```bash
+# Prerequisites
+- Python 3.11
+- PostgreSQL (running locally or via Docker)
+- Redis (running locally or via Docker)
+
 # Clone
 git clone https://github.com/anasmohamed05221/E-Commerce.git
 cd E-Commerce
@@ -239,7 +244,7 @@ MAIL_PORT=587
 - [x] Admin product management — create, update, delete (with referential integrity guard)
 - [x] RBAC — CUSTOMER and ADMIN roles enforced at dependency level
 - [x] Rate limiting, structured logging, request ID tracing
-- [x] 40+ test files (unit, integration, API, middleware)
+- [x] 190+ test files (unit, integration, API, middleware)
 - [x] GitHub Actions CI pipeline
 
 ### Building Now

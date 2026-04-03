@@ -3,7 +3,7 @@ os.environ["ENV"] = "testing"
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator
 from utils.hashing import get_password_hash
@@ -19,18 +19,45 @@ from core.config import settings
 from utils.deps import get_db
 from unittest.mock import AsyncMock
 from core.redis_client import redis_client
+from filelock import FileLock
+
 
 # SYNC PostgreSql for testing (matches sync service layer)
 SQLALCHEMY_DATABASE_URL = settings.TEST_DATABASE_URL
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+@pytest.fixture(scope="session")
+def db_engine(tmp_path_factory, worker_id):
+    """
+    (Transactional isolation + xdist parallelism setup for testing time +60% optimization)
+    Creates the database schema once for the entire test session.
+    Drops all tables after all tests finish.
+    """
+    engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
-TestingSessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine
-)
+    if worker_id == "master":
+        # Running without xdist — just create normally
+        Base.metadata.create_all(bind=engine)
+        yield engine
+        Base.metadata.drop_all(bind=engine)
+        return
+    
+    # Running with xdist — use a file lock so only one worker runs DDL
+    root_tmp = tmp_path_factory.getbasetemp().parent
+    lock_path = root_tmp / "db_setup.lock"
+    flag_path = root_tmp / "db_ready.flag"
 
+    with FileLock(str(lock_path)):
+        if not flag_path.exists():
+            Base.metadata.drop_all(bind=engine)
+            Base.metadata.create_all(bind=engine)
+            flag_path.touch()
+
+    yield engine
+    # No drop here — last worker can't reliably know it's last
+    # Drop happens on next run's create_all (drop_all above)
+
+    
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False)
 
 @pytest.fixture(autouse=True)
 def mock_redis_for_tests():
@@ -53,23 +80,29 @@ def mock_redis_for_tests():
     redis_client.redis = None
 
 @pytest.fixture
-def session() -> Generator[Session, None, None]:
+def session(db_engine):
     """
-    Creates a fresh, empty database for each test.
-    Uses SYNC SQLAlchemy to match the service layer.
+    Wraps each test in a transaction with a savepoint.
+    Rolls back after the test so data never persists between tests.
+    Schema is reused across all tests — no create/drop per test.
     """
-    # Create all tables
-    Base.metadata.create_all(bind=engine)
+    connection = db_engine.connect()
+    outer_transaction = connection.begin()
     
     # Create session
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-    
-    # Drop all tables (cleanup)
-    Base.metadata.drop_all(bind=engine)
+    db = TestingSessionLocal(bind=connection)
+    db.begin_nested() # start first savepoint
+
+    @event.listens_for(db, "after_transaction_end")
+    def restart_savepoint(session, transaction):
+        if transaction.nested and not transaction._parent.nested:
+            session.begin_nested()
+
+    yield db
+
+    db.close()
+    outer_transaction.rollback()
+    connection.close()
 
 
 @pytest.fixture

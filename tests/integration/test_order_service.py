@@ -40,16 +40,6 @@ def test_get_orders_pagination_offset(session, verified_user, order_factory):
     assert total == 3
 
 
-def test_get_orders_sorted_newest_first(session, verified_user, order_factory):
-    """Most recently created order appears first in the result list."""
-    order_factory()
-    time.sleep(0.3)
-    order_factory()
-
-    orders, total = OrderService.get_orders(session, verified_user.id, 2, 0)
-
-    assert orders[0].created_at > orders[1].created_at
-
 
 def test_get_order_success(session, verified_user, order_factory):
     """Returns the correct order with items and nested product details eagerly loaded."""

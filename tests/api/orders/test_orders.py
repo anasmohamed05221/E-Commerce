@@ -5,15 +5,6 @@ from services.cart import CartService
 from services.checkout import CheckoutService
 
 
-async def login(client, verified_user) -> str:
-    """Login and return access token."""
-    response = await client.post("/auth/token", data={
-        "username": verified_user.email,
-        "password": "TestPassword123!"
-    })
-    return response.json()["access_token"]
-
-
 # ─── Authentication ───────────────────────────────────────────────────────────
 
 
@@ -42,12 +33,11 @@ async def test_cancel_order_requires_auth(client):
 
 
 @pytest.mark.asyncio
-async def test_get_orders_success(client, verified_user, order_factory):
+async def test_get_orders_success(client, user_token, order_factory):
     """Returns 200 with correct envelope shape."""
-    token = await login(client, verified_user)
     order_factory()
 
-    response = await client.get("/orders/", headers={"Authorization": f"Bearer {token}"})
+    response = await client.get("/orders/", headers={"Authorization": f"Bearer {user_token}"})
 
     assert response.status_code == 200
     data = response.json()
@@ -60,11 +50,9 @@ async def test_get_orders_success(client, verified_user, order_factory):
 
 
 @pytest.mark.asyncio
-async def test_get_orders_empty(client, verified_user):
+async def test_get_orders_empty(client, user_token):
     """Returns 200 with empty items list when user has no orders."""
-    token = await login(client, verified_user)
-
-    response = await client.get("/orders/", headers={"Authorization": f"Bearer {token}"})
+    response = await client.get("/orders/", headers={"Authorization": f"Bearer {user_token}"})
 
     assert response.status_code == 200
     data = response.json()
@@ -73,16 +61,15 @@ async def test_get_orders_empty(client, verified_user):
 
 
 @pytest.mark.asyncio
-async def test_get_orders_pagination_params(client, verified_user, order_factory):
+async def test_get_orders_pagination_params(client, user_token, order_factory):
     """limit and offset query params are reflected in the response envelope."""
-    token = await login(client, verified_user)
     order_factory()
     order_factory()
     order_factory()
 
     response = await client.get(
         "/orders/?limit=2&offset=1",
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {user_token}"}
     )
 
     assert response.status_code == 200
@@ -94,20 +81,16 @@ async def test_get_orders_pagination_params(client, verified_user, order_factory
 
 
 @pytest.mark.asyncio
-async def test_get_orders_invalid_limit(client, verified_user):
+async def test_get_orders_invalid_limit(client, user_token):
     """limit=0 returns 422."""
-    token = await login(client, verified_user)
-
-    response = await client.get("/orders/?limit=0", headers={"Authorization": f"Bearer {token}"})
+    response = await client.get("/orders/?limit=0", headers={"Authorization": f"Bearer {user_token}"})
     assert response.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_get_orders_invalid_offset(client, verified_user):
+async def test_get_orders_invalid_offset(client, user_token):
     """offset=-1 returns 422."""
-    token = await login(client, verified_user)
-
-    response = await client.get("/orders/?offset=-1", headers={"Authorization": f"Bearer {token}"})
+    response = await client.get("/orders/?offset=-1", headers={"Authorization": f"Bearer {user_token}"})
     assert response.status_code == 422
 
 
@@ -115,14 +98,13 @@ async def test_get_orders_invalid_offset(client, verified_user):
 
 
 @pytest.mark.asyncio
-async def test_get_order_success(client, verified_user, order_factory):
+async def test_get_order_success(client, user_token, order_factory):
     """Returns 200 with full OrderOut shape including nested items and product."""
-    token = await login(client, verified_user)
     order = order_factory()
 
     response = await client.get(
         f"/orders/{order.id}",
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {user_token}"}
     )
 
     assert response.status_code == 200
@@ -142,19 +124,15 @@ async def test_get_order_success(client, verified_user, order_factory):
 
 
 @pytest.mark.asyncio
-async def test_get_order_not_found(client, verified_user):
+async def test_get_order_not_found(client, user_token):
     """Returns 404 for a non-existent order."""
-    token = await login(client, verified_user)
-
-    response = await client.get("/orders/99999", headers={"Authorization": f"Bearer {token}"})
+    response = await client.get("/orders/99999", headers={"Authorization": f"Bearer {user_token}"})
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_get_order_other_user(client, verified_user, session, product_factory):
+async def test_get_order_other_user(client, user_token, session, product_factory):
     """Returns 404 when the order belongs to a different user."""
-    token = await login(client, verified_user)
-
     other_user = User(
         email="other@example.com",
         first_name="Other",
@@ -174,7 +152,7 @@ async def test_get_order_other_user(client, verified_user, session, product_fact
 
     response = await client.get(
         f"/orders/{other_order.id}",
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {user_token}"}
     )
     assert response.status_code == 404
 
@@ -183,14 +161,13 @@ async def test_get_order_other_user(client, verified_user, session, product_fact
 
 
 @pytest.mark.asyncio
-async def test_cancel_order_success(client, verified_user, order_factory):
+async def test_cancel_order_success(client, user_token, order_factory):
     """Returns 200 with status set to cancelled."""
-    token = await login(client, verified_user)
     order = order_factory()
 
     response = await client.post(
         f"/orders/{order.id}/cancel",
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {user_token}"}
     )
 
     assert response.status_code == 200
@@ -198,21 +175,18 @@ async def test_cancel_order_success(client, verified_user, order_factory):
 
 
 @pytest.mark.asyncio
-async def test_cancel_order_not_found(client, verified_user):
+async def test_cancel_order_not_found(client, user_token):
     """Returns 404 for a non-existent order."""
-    token = await login(client, verified_user)
-
-    response = await client.post("/orders/99999/cancel", headers={"Authorization": f"Bearer {token}"})
+    response = await client.post("/orders/99999/cancel", headers={"Authorization": f"Bearer {user_token}"})
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_cancel_order_not_pending(client, verified_user, order_factory):
+async def test_cancel_order_not_pending(client, user_token, order_factory):
     """Returns 409 when the order is already cancelled."""
-    token = await login(client, verified_user)
     order = order_factory()
 
-    await client.post(f"/orders/{order.id}/cancel", headers={"Authorization": f"Bearer {token}"})
-    response = await client.post(f"/orders/{order.id}/cancel", headers={"Authorization": f"Bearer {token}"})
+    await client.post(f"/orders/{order.id}/cancel", headers={"Authorization": f"Bearer {user_token}"})
+    response = await client.post(f"/orders/{order.id}/cancel", headers={"Authorization": f"Bearer {user_token}"})
 
     assert response.status_code == 409

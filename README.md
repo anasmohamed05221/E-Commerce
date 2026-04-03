@@ -167,7 +167,8 @@ tests/
 - **190+ tests** across 4 layers — real PostgreSQL, AsyncMock Redis, CI on every push
 - **Transactional isolation** — tables created once, each test wrapped in a savepoint and rolled back. No DDL per test.
 - **Parallel execution** — `pytest -n 8` via pytest-xdist with filelock-guarded DDL. One worker sets up the schema, all others reuse it.
-- **Result: 70s → 28s (60% faster)**
+- **Pre-hashed passwords + direct JWT generation** — eliminates bcrypt cost from every test fixture and HTTP login call.
+- **Result: 70s → 18s (74% faster)**
 
 ---
 

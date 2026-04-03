@@ -7,6 +7,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator
 from utils.hashing import get_password_hash
+from services.token import TokenService
 from models.users import User
 from models.categories import Category
 from models.products import Product
@@ -131,6 +132,9 @@ async def client(session: Session):
     app.dependency_overrides.clear()
 
 
+# Pre-hash once outside the fixture
+HASHED_TEST_PASSWORD = get_password_hash("TestPassword123!")
+
 
 @pytest.fixture
 def verified_user(session):
@@ -140,7 +144,7 @@ def verified_user(session):
         email="exampleuser@email.com",
         first_name="Example",
         last_name="User",
-        hashed_password=get_password_hash("TestPassword123!"),
+        hashed_password=HASHED_TEST_PASSWORD,
         phone_number="+201111111111",
         is_verified=True,
         is_active=True
@@ -159,7 +163,7 @@ def verified_admin(session):
         email="exampleadmin@email.com",
         first_name="Example",
         last_name="Admin",
-        hashed_password=get_password_hash("TestPassword123!"),
+        hashed_password=HASHED_TEST_PASSWORD,
         role=UserRole.ADMIN,
         phone_number="+2012121212121",
         is_verified=True,
@@ -169,6 +173,26 @@ def verified_admin(session):
     session.commit()
     session.refresh(user)
     return user
+
+
+@pytest.fixture
+def user_token(verified_user) -> str:
+    """Generate a JWT access token for verified_user directly, bypassing HTTP login."""
+    return TokenService.create_access_token(
+        email=verified_user.email,
+        user_id=verified_user.id,
+        role=verified_user.role
+    )
+
+
+@pytest.fixture
+def admin_token(verified_admin) -> str:
+    """Generate a JWT access token for verified_admin directly, bypassing HTTP login."""
+    return TokenService.create_access_token(
+        email=verified_admin.email,
+        user_id=verified_admin.id,
+        role=verified_admin.role
+    )
 
 
 @pytest.fixture

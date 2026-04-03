@@ -3,15 +3,6 @@ from services.cart import CartService
 from services.checkout import CheckoutService
 
 
-async def login(client, user) -> str:
-    """Login and return access token."""
-    response = await client.post("/auth/token", data={
-        "username": user.email,
-        "password": "TestPassword123!"
-    })
-    return response.json()["access_token"]
-
-
 # ─── Authentication ───────────────────────────────────────────────────────────
 
 
@@ -42,38 +33,35 @@ async def test_delete_product_requires_auth(client):
 
 
 @pytest.mark.asyncio
-async def test_create_product_forbidden_for_customer(client, verified_user, test_category):
+async def test_create_product_forbidden_for_customer(client, user_token, test_category):
     """Customer role is rejected with 403."""
-    token = await login(client, verified_user)
     response = await client.post(
         "/admin/products/",
         json={"name": "Laptop", "price": "999.99", "stock": 10, "category_id": test_category.id},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {user_token}"}
     )
     assert response.status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_update_product_forbidden_for_customer(client, verified_user, product_factory):
+async def test_update_product_forbidden_for_customer(client, user_token, product_factory):
     """Customer role is rejected with 403."""
-    token = await login(client, verified_user)
     product = product_factory()
     response = await client.patch(
         f"/admin/products/{product.id}",
         json={"name": "New"},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {user_token}"}
     )
     assert response.status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_delete_product_forbidden_for_customer(client, verified_user, product_factory):
+async def test_delete_product_forbidden_for_customer(client, user_token, product_factory):
     """Customer role is rejected with 403."""
-    token = await login(client, verified_user)
     product = product_factory()
     response = await client.delete(
         f"/admin/products/{product.id}",
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {user_token}"}
     )
     assert response.status_code == 403
 
@@ -82,9 +70,8 @@ async def test_delete_product_forbidden_for_customer(client, verified_user, prod
 
 
 @pytest.mark.asyncio
-async def test_create_product_success(client, verified_admin, test_category):
+async def test_create_product_success(client, admin_token, test_category):
     """Admin creates a product — returns 201 with full ProductDetailOut shape."""
-    token = await login(client, verified_admin)
     response = await client.post(
         "/admin/products/",
         json={
@@ -95,7 +82,7 @@ async def test_create_product_success(client, verified_admin, test_category):
             "description": "A great laptop",
             "image_url": "http://example.com/laptop.jpg"
         },
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {admin_token}"}
     )
 
     assert response.status_code == 201
@@ -111,49 +98,45 @@ async def test_create_product_success(client, verified_admin, test_category):
 
 
 @pytest.mark.asyncio
-async def test_create_product_invalid_category(client, verified_admin):
+async def test_create_product_invalid_category(client, admin_token):
     """Returns 404 when category_id does not exist."""
-    token = await login(client, verified_admin)
     response = await client.post(
         "/admin/products/",
         json={"name": "Ghost", "price": "10.00", "stock": 1, "category_id": 99999},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_create_product_missing_required_fields(client, verified_admin):
+async def test_create_product_missing_required_fields(client, admin_token):
     """Returns 422 when required fields are missing."""
-    token = await login(client, verified_admin)
     response = await client.post(
         "/admin/products/",
         json={"name": "Incomplete"},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_create_product_negative_price(client, verified_admin, test_category):
+async def test_create_product_negative_price(client, admin_token, test_category):
     """Returns 422 when price is negative."""
-    token = await login(client, verified_admin)
     response = await client.post(
         "/admin/products/",
         json={"name": "Bad", "price": "-1.00", "stock": 1, "category_id": test_category.id},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_create_product_negative_stock(client, verified_admin, test_category):
+async def test_create_product_negative_stock(client, admin_token, test_category):
     """Returns 422 when stock is negative."""
-    token = await login(client, verified_admin)
     response = await client.post(
         "/admin/products/",
         json={"name": "Bad", "price": "10.00", "stock": -1, "category_id": test_category.id},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 422
 
@@ -162,15 +145,14 @@ async def test_create_product_negative_stock(client, verified_admin, test_catego
 
 
 @pytest.mark.asyncio
-async def test_update_product_success(client, verified_admin, product_factory):
+async def test_update_product_success(client, admin_token, product_factory):
     """Admin updates a product — returns 200 with updated fields."""
-    token = await login(client, verified_admin)
     product = product_factory(name="Old Name", price=100.00, stock=5)
 
     response = await client.patch(
         f"/admin/products/{product.id}",
         json={"name": "New Name", "price": "200.00"},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {admin_token}"}
     )
 
     assert response.status_code == 200
@@ -181,52 +163,48 @@ async def test_update_product_success(client, verified_admin, product_factory):
 
 
 @pytest.mark.asyncio
-async def test_update_product_not_found(client, verified_admin):
+async def test_update_product_not_found(client, admin_token):
     """Returns 404 for a non-existent product."""
-    token = await login(client, verified_admin)
     response = await client.patch(
         "/admin/products/99999",
         json={"name": "Ghost"},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_update_product_invalid_category(client, verified_admin, product_factory):
+async def test_update_product_invalid_category(client, admin_token, product_factory):
     """Returns 404 when the new category_id does not exist."""
-    token = await login(client, verified_admin)
     product = product_factory()
     response = await client.patch(
         f"/admin/products/{product.id}",
         json={"category_id": 99999},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_update_product_empty_body(client, verified_admin, product_factory):
+async def test_update_product_empty_body(client, admin_token, product_factory):
     """Returns 422 when body has no fields (model_validator rejects it)."""
-    token = await login(client, verified_admin)
     product = product_factory()
     response = await client.patch(
         f"/admin/products/{product.id}",
         json={},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_update_product_negative_price(client, verified_admin, product_factory):
+async def test_update_product_negative_price(client, admin_token, product_factory):
     """Returns 422 when price is negative."""
-    token = await login(client, verified_admin)
     product = product_factory()
     response = await client.patch(
         f"/admin/products/{product.id}",
         json={"price": "-5.00"},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 422
 
@@ -235,14 +213,13 @@ async def test_update_product_negative_price(client, verified_admin, product_fac
 
 
 @pytest.mark.asyncio
-async def test_delete_product_success(client, verified_admin, product_factory):
+async def test_delete_product_success(client, admin_token, product_factory):
     """Admin deletes a product — returns 204 with no body."""
-    token = await login(client, verified_admin)
     product = product_factory()
 
     response = await client.delete(
         f"/admin/products/{product.id}",
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {admin_token}"}
     )
 
     assert response.status_code == 204
@@ -250,40 +227,37 @@ async def test_delete_product_success(client, verified_admin, product_factory):
 
 
 @pytest.mark.asyncio
-async def test_delete_product_not_found(client, verified_admin):
+async def test_delete_product_not_found(client, admin_token):
     """Returns 404 for a non-existent product."""
-    token = await login(client, verified_admin)
     response = await client.delete(
         "/admin/products/99999",
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_delete_product_blocked_by_order(client, verified_admin, verified_user, session, product_factory):
+async def test_delete_product_blocked_by_order(client, admin_token, verified_user, session, product_factory):
     """Returns 409 when the product is referenced by an order item."""
-    token = await login(client, verified_admin)
     product = product_factory()
     CartService.add_to_cart(session, verified_user.id, product.id, 1)
     CheckoutService.checkout(session, verified_user.id)
 
     response = await client.delete(
         f"/admin/products/{product.id}",
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 409
 
 
 @pytest.mark.asyncio
-async def test_delete_product_with_cart_item_succeeds(client, verified_admin, verified_user, session, product_factory):
+async def test_delete_product_with_cart_item_succeeds(client, admin_token, verified_user, session, product_factory):
     """Returns 204 when product is in a cart but has no orders — cart item is cascade-deleted."""
-    token = await login(client, verified_admin)
     product = product_factory()
     CartService.add_to_cart(session, verified_user.id, product.id, 2)
 
     response = await client.delete(
         f"/admin/products/{product.id}",
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 204

@@ -57,3 +57,22 @@ class OrderListOut(BaseModel):
     limit: int
     offset: int
     total: int
+
+
+class AdminOrderSummaryOut(OrderSummaryOut):
+    user_id: int
+
+
+class AdminOrderListOut(BaseModel):
+    items: list[AdminOrderSummaryOut]
+    limit: int
+    offset: int
+    total: int
+
+
+class AdminOrderOut(OrderOut):
+    user_id: int
+    
+
+class OrderStatusUpdate(BaseModel):
+    status: OrderStatus

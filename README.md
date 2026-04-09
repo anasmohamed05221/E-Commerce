@@ -149,9 +149,9 @@ users ──┬── refresh_tokens
 
 ```
 tests/
-├── unit/           → hashing, tokens, verification, sanitization
+├── unit/           → hashing, tokens, verification, sanitization, order FSM
 ├── integration/    → user CRUD, token rotation, products, categories,
-│                     cart, checkout, orders, admin product service
+│                     cart, checkout, orders, admin product/order service
 ├── api/
 │   ├── auth/       → register, login, logout, verify, refresh, reset
 │   ├── users/      → profile, password change, deactivation
@@ -160,11 +160,12 @@ tests/
 │   ├── cart/       → add, update, remove, view
 │   ├── orders/     → checkout, list, detail, cancel
 │   ├── admin_products/ → create, update, delete (auth, RBAC, validation)
+│   ├── admin_orders/  → list, status update, cancel (auth, RBAC, FSM)
 │   └── checkout/   → stock validation, atomicity
 └── middleware/     → rate limiting, request ID
 ```
 
-- **190+ tests** across 4 layers — real PostgreSQL, AsyncMock Redis, CI on every push
+- **240+ tests** across 4 layers — real PostgreSQL, AsyncMock Redis, CI on every push
 - **Transactional isolation** — tables created once, each test wrapped in a savepoint and rolled back. No DDL per test.
 - **Parallel execution** — `pytest -n auto` via pytest-xdist with filelock-guarded DDL. One worker sets up the schema, all others reuse it.
 - **Pre-hashed passwords + direct JWT generation** — eliminates bcrypt cost from every test fixture and HTTP login call.

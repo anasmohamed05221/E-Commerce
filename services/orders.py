@@ -81,7 +81,7 @@ class OrderService:
         try:
            db.commit()
         except Exception:
-            logger.error("Order cancellation commit failed", extra={"user_id": user_id, "order_id": order_id})
+            logger.error("Order cancellation commit failed", extra={"user_id": user_id, "order_id": order_id}, exc_info=True)
             db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                                 detail="Order cancellation failed")
@@ -139,19 +139,19 @@ class OrderService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
 
         if order.status == new_status:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Order status is already '{new_status}'")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Order status is already '{new_status.value}'")
         
         if not OrderService._is_allowed_status_transition(order.status, new_status):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Transition from '{order.status}' to '{new_status}' is not allowed"
+                detail=f"Transition from '{order.status.value}' to '{new_status.value}' is not allowed"
             )
 
         order.status = new_status
         try:
            db.commit()
         except Exception:
-            logger.error("Order status update commit failed", extra={"order_id": order_id})
+            logger.error("Order status update commit failed", extra={"order_id": order_id}, exc_info=True)
             db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                                 detail="Order status update failed")
@@ -184,7 +184,7 @@ class OrderService:
         try:
            db.commit()
         except Exception:
-            logger.error("Order cancellation commit failed", extra={ "order_id": order_id})
+            logger.error("Order cancellation commit failed", extra={"order_id": order_id}, exc_info=True)
             db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                                 detail="Order cancellation failed")

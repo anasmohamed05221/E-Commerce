@@ -53,4 +53,6 @@ async def cancel_order(request: Request, db: db_dependency, current_user: custom
     """Cancel a pending order and restore stock for all items. Returns 409 if the order is not cancellable."""
     cancelled_order = OrderService.cancel_order(db=db, user_id=current_user.id, order_id=order_id)
 
+    logger.info("Order cancelled", extra={"user_id": current_user.id, "order_id": order_id})
+
     return cancelled_order

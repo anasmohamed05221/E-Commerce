@@ -19,7 +19,7 @@ async def test_get_categories_sorting(session):
     assert categories[0].name == "Apparel"
     assert categories[1].name == "Mugs"
     assert categories[2].name == "Zebra"
-    
+
 @pytest.mark.asyncio
 async def test_get_categories_empty(session):
     """Test that CategoryService.get_categories returns an empty list when DB is empty."""

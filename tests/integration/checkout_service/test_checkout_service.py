@@ -35,7 +35,7 @@ def test_checkout_success(session, verified_user, product_factory):
     # Cart cleared
     cart_items = session.query(CartItem).filter(CartItem.user_id==verified_user.id).all()
     assert len(cart_items) == 0
-    
+
 
 def test_checkout_cart_empty(session, verified_user):
     """Checkout with no cart items raises 400."""
@@ -62,7 +62,7 @@ def test_checkout_multiple_cart_items(session, verified_user, product_factory):
     product1 = product_factory(name="Laptop", price=1000.00, stock=10)
     product2 = product_factory(name="Monitor", price=500.00, stock=7)
     product3 = product_factory(name="Keyboard", price=60.00, stock=5)
-    
+
     CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product1.id, quantity=2)
     CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product2.id, quantity=1)
     CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product3.id, quantity=3)
@@ -104,7 +104,7 @@ def test_checkout_multiple_cart_items(session, verified_user, product_factory):
 def test_checkout_stock_equivalent(session, verified_user, product_factory):
     """Checkout succeeds when quantity exactly matches available stock, leaving stock at zero."""
     product = product_factory(name="Laptop", price=1000.00, stock=10)
-    
+
     CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=10)
 
     order = CheckoutService.checkout(db=session, user_id=verified_user.id)

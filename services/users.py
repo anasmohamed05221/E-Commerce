@@ -12,6 +12,10 @@ from utils.hashing import verify_password, get_password_hash
 
 from typing import Optional
 
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 class UserService:
 
@@ -19,6 +23,7 @@ class UserService:
     def request_password_change(db: Session, current_user: User, current_password: str, new_password: str, bg: BackgroundTasks) -> None:
         """Validate current password, store pending hash, and dispatch confirmation email."""
         if not verify_password(current_password, current_user.hashed_password):
+            logger.warning("Password change rejected — incorrect current password", extra={"user_id": current_user.id})
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                 detail="Incorrect current password")
 
@@ -31,6 +36,7 @@ class UserService:
         try:
             db.commit()
         except Exception:
+            logger.error("Password change request commit failed", extra={"user_id": current_user.id}, exc_info=True)
             db.rollback()
             raise
 
@@ -96,6 +102,10 @@ class UserService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail="Invalid or expired token")
 
+        if not user.pending_password_hash:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="Invalid or expired token")
+
         user.hashed_password = user.pending_password_hash
         user.pending_password_hash = None
         user.password_change_token = None
@@ -104,6 +114,7 @@ class UserService:
         try:
             db.commit()
         except Exception:
+            logger.error("Password change confirmation commit failed", extra={"user_id": user.id}, exc_info=True)
             db.rollback()
             raise
 
@@ -128,6 +139,7 @@ class UserService:
         try:
             db.commit()
         except Exception:
+            logger.error("Password change denial commit failed", extra={"user_id": user.id}, exc_info=True)
             db.rollback()
             raise
 
@@ -149,6 +161,7 @@ class UserService:
     def deactivate_self(db: Session, current_user: User, password: str) -> None:
         """Verify password, deactivate account, and revoke all sessions."""
         if not verify_password(plain_password=password, hashed_password=current_user.hashed_password):
+            logger.warning("Self-deactivation rejected — incorrect password", extra={"user_id": current_user.id})
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                 detail="Incorrect password")
 
@@ -156,6 +169,7 @@ class UserService:
         try:
             db.commit()
         except Exception:
+            logger.error("Self-deactivation commit failed", extra={"user_id": current_user.id}, exc_info=True)
             db.rollback()
             raise
 
@@ -164,6 +178,7 @@ class UserService:
 
     @staticmethod
     def get_all_users(db: Session, limit: int, offset: int, role_filter: Optional[UserRole], is_active_filter: Optional[bool]) -> tuple[list[User], int]:
+        """Return a paginated list of all users. Optionally filter by role and/or is_active."""
         query = db.query(User)
         if role_filter is not None:
             query = query.filter(User.role == role_filter)
@@ -178,6 +193,7 @@ class UserService:
 
     @staticmethod
     def get_user_by_id(db: Session, user_id: int) -> User:
+        """Return a single user by ID. Raises 404 if not found."""
         user = db.query(User).filter(User.id == user_id).first()
         
         if user is None: 
@@ -188,6 +204,10 @@ class UserService:
 
     @staticmethod
     def deactivate_user(db: Session, target_user_id: int, admin_id: int) -> User:
+        """Deactivate a user account and revoke all their sessions. Admin cannot target themselves.
+
+        Raises 400 (self-targeting), 404 (not found), 409 (already inactive).
+        """
         if target_user_id == admin_id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Admin cannot deactivate their own account")
         
@@ -204,6 +224,7 @@ class UserService:
         try:
             db.commit()
         except Exception:
+            logger.error("User deactivation commit failed", extra={"target_user_id": target_user_id}, exc_info=True)
             db.rollback()
             raise
 
@@ -214,6 +235,7 @@ class UserService:
 
     @staticmethod
     def reactivate_user(db: Session, target_user_id: int) -> User:
+        """Reactivate a previously deactivated user account. Raises 404 (not found), 409 (already active)."""
         user = db.query(User).filter(User.id == target_user_id).first()
 
         if user is None: 
@@ -227,13 +249,18 @@ class UserService:
         try:
             db.commit()
         except Exception:
+            logger.error("User reactivation commit failed", extra={"target_user_id": target_user_id}, exc_info=True)
             db.rollback()
             raise
-        
+
         return user
 
     @staticmethod
     def update_user_role(db: Session, target_user_id: int, new_role: UserRole, admin_id: int) -> User:
+        """Promote or demote a user's role. Admin cannot target themselves.
+
+        Raises 400 (self-targeting), 404 (not found), 409 (already has role).
+        """
         if target_user_id == admin_id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Can't change your own role")
         
@@ -243,13 +270,14 @@ class UserService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
         
         if user.role == new_role:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"User already has the role: {new_role}")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"User already has the role: {new_role.value}")
         
         user.role = new_role
 
         try:
             db.commit()
         except Exception:
+            logger.error("Role update commit failed", extra={"target_user_id": target_user_id}, exc_info=True)
             db.rollback()
             raise
 

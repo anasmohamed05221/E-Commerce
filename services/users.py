@@ -5,9 +5,12 @@ from fastapi import HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from models.users import User
+from models.enums import UserRole
 from services.email import send_email
 from services.token import TokenService
 from utils.hashing import verify_password, get_password_hash
+
+from typing import Optional
 
 
 class UserService:
@@ -157,3 +160,97 @@ class UserService:
             raise
 
         TokenService.revoke_all_user_tokens(current_user.id, db)
+
+
+    @staticmethod
+    def get_all_users(db: Session, limit: int, offset: int, role_filter: Optional[UserRole], is_active_filter: Optional[bool]) -> tuple[list[User], int]:
+        query = db.query(User)
+        if role_filter is not None:
+            query = query.filter(User.role == role_filter)
+        if is_active_filter is not None:
+            query = query.filter(User.is_active == is_active_filter)
+
+        total = query.count()
+        users = query.offset(offset).limit(limit).all()
+
+        return users, total
+    
+
+    @staticmethod
+    def get_user_by_id(db: Session, user_id: int) -> User:
+        user = db.query(User).filter(User.id == user_id).first()
+        
+        if user is None: 
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        
+        return user
+    
+
+    @staticmethod
+    def deactivate_user(db: Session, target_user_id: int, admin_id: int) -> User:
+        if target_user_id == admin_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Admin cannot deactivate their own account")
+        
+        user = db.query(User).filter(User.id == target_user_id).first()
+
+        if user is None: 
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        
+        if not user.is_active:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User is already inactive")
+        
+        user.is_active = False
+
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+
+        TokenService.revoke_all_user_tokens(user.id, db)
+
+        return user
+
+
+    @staticmethod
+    def reactivate_user(db: Session, target_user_id: int) -> User:
+        user = db.query(User).filter(User.id == target_user_id).first()
+
+        if user is None: 
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        
+        if user.is_active:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User is already active")
+        
+        user.is_active = True
+
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        
+        return user
+
+    @staticmethod
+    def update_user_role(db: Session, target_user_id: int, new_role: UserRole, admin_id: int) -> User:
+        if target_user_id == admin_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Can't change your own role")
+        
+        user = db.query(User).filter(User.id == target_user_id).first()
+
+        if user is None: 
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        
+        if user.role == new_role:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"User already has the role: {new_role}")
+        
+        user.role = new_role
+
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+
+        return user

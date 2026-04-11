@@ -1,6 +1,6 @@
 <div align="center">
 
-# E-Commerce Backend API
+# E-Commerce Backend APP
 
 **Production-grade e-commerce REST API built from scratch with FastAPI**
 

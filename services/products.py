@@ -20,7 +20,7 @@ class ProductService:
         min_price: Optional[Decimal] = None, max_price: Optional[Decimal] = None
         ) -> tuple[list[Product], int]:
         """Fetch paginated products with optional category and price filters."""
-        query = db.query(Product)
+        query = db.query(Product).order_by(Product.id)
         if category_id is not None:
             query = query.filter(Product.category_id == category_id)
         if min_price is not None:

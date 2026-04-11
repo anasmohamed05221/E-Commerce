@@ -179,7 +179,7 @@ class UserService:
     @staticmethod
     def get_all_users(db: Session, limit: int, offset: int, role_filter: Optional[UserRole], is_active_filter: Optional[bool]) -> tuple[list[User], int]:
         """Return a paginated list of all users. Optionally filter by role and/or is_active."""
-        query = db.query(User)
+        query = db.query(User).order_by(User.id)
         if role_filter is not None:
             query = query.filter(User.role == role_filter)
         if is_active_filter is not None:

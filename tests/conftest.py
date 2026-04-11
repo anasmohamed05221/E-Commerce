@@ -137,11 +137,11 @@ HASHED_TEST_PASSWORD = get_password_hash("TestPassword123!")
 
 
 @pytest.fixture
-def verified_user(session):
+def verified_user(session, worker_id):
     """Create a verified, active user."""
 
     user = User(
-        email="exampleuser@email.com",
+        email=f"exampleuser_{worker_id}@email.com",
         first_name="Example",
         last_name="User",
         hashed_password=HASHED_TEST_PASSWORD,
@@ -156,11 +156,11 @@ def verified_user(session):
 
 
 @pytest.fixture
-def verified_admin(session):
+def verified_admin(session, worker_id):
     """Create a verified, active admin."""
 
     user = User(
-        email="exampleadmin@email.com",
+        email=f"exampleadmin_{worker_id}@email.com",
         first_name="Example",
         last_name="Admin",
         hashed_password=HASHED_TEST_PASSWORD,

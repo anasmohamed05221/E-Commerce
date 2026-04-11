@@ -19,13 +19,13 @@ class User(Base):
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     hashed_password = Column(String, nullable=False)
-    is_active = Column(Boolean, default=True) 
+    is_active = Column(Boolean, default=True, nullable=False) 
     """is_active = False means:
     - User cannot authenticate
     - User is treated as deleted / deactivated
     - User is excluded from all business logic
     """
-    role = Column(Enum(UserRole, values_callable=lambda obj: [e.value for e in obj], name="userrole"), default=UserRole.CUSTOMER)
+    role = Column(Enum(UserRole, values_callable=lambda obj: [e.value for e in obj], name="userrole"), default=UserRole.CUSTOMER, nullable=False)
     phone_number = Column(String)
     # Email verification fields
     is_verified = Column(Boolean, default=False, nullable=False)

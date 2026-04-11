@@ -125,6 +125,22 @@ Tokens are **hashed in the database** (SHA-256 of JTI). Passwords use **bcrypt**
 | `PATCH` | `/admin/products/{id}` | 30/min | Partial update product |
 | `DELETE` | `/admin/products/{id}` | 30/min | Delete product (blocked if order items exist) |
 
+### Admin Orders `/admin/orders` (admins only)
+| Method | Endpoint | Rate Limit | Description |
+|---|---|---|---|
+| `GET` | `/admin/orders/` | 60/min | List all orders (paginated, filterable by status) |
+| `PATCH` | `/admin/orders/{id}/status` | 30/min | Advance order status (PENDING→CONFIRMED→COMPLETED) |
+| `POST` | `/admin/orders/{id}/cancel` | 30/min | Cancel PENDING or CONFIRMED order; restores stock |
+
+### Admin Users `/admin/users` (admins only)
+| Method | Endpoint | Rate Limit | Description |
+|---|---|---|---|
+| `GET` | `/admin/users/` | 60/min | List all users (paginated, filterable by role/is_active) |
+| `GET` | `/admin/users/{id}` | 60/min | Get single user detail |
+| `PATCH` | `/admin/users/{id}/deactivate` | 30/min | Deactivate user + revoke all sessions |
+| `PATCH` | `/admin/users/{id}/reactivate` | 30/min | Reactivate a deactivated user |
+| `PATCH` | `/admin/users/{id}/role` | 30/min | Promote or demote user role |
+
 ### System
 | Method | Endpoint | Description |
 |---|---|---|
@@ -150,8 +166,8 @@ users ──┬── refresh_tokens
 ```
 tests/
 ├── unit/           → hashing, tokens, verification, sanitization, order FSM
-├── integration/    → user CRUD, token rotation, products, categories,
-│                     cart, checkout, orders, admin product/order service
+├── integration/    → auth, user service, token rotation, products, categories,
+│                     cart, checkout, orders, admin product/order/user service
 ├── api/
 │   ├── auth/       → register, login, logout, verify, refresh, reset
 │   ├── users/      → profile, password change, deactivation
@@ -161,15 +177,17 @@ tests/
 │   ├── orders/     → checkout, list, detail, cancel
 │   ├── admin_products/ → create, update, delete (auth, RBAC, validation)
 │   ├── admin_orders/  → list, status update, cancel (auth, RBAC, FSM)
+│   ├── admin_users/   → list, get, deactivate, reactivate, role update (auth, RBAC, guards)
 │   └── checkout/   → stock validation, atomicity
 └── middleware/     → rate limiting, request ID
 ```
 
-- **240+ tests** across 4 layers — real PostgreSQL, AsyncMock Redis, CI on every push
+- **304 tests** across 4 layers — real PostgreSQL, AsyncMock Redis, CI on every push
 - **Transactional isolation** — tables created once, each test wrapped in a savepoint and rolled back. No DDL per test.
-- **Parallel execution** — `pytest -n auto` via pytest-xdist with filelock-guarded DDL. One worker sets up the schema, all others reuse it.
+- **Parallel execution** — `pytest -n 8` via pytest-xdist with filelock-guarded DDL. One worker sets up the schema, all others reuse it.
 - **Pre-hashed passwords + direct JWT generation** — eliminates bcrypt cost from every test fixture and HTTP login call.
-- **Result: 70s → 18s (74% faster)**
+- **Worker-scoped fixture emails** — unique email per xdist worker prevents unique-constraint deadlocks under full parallelism.
+- **Result: before optimization, 194 tests in ~70s; after optimization, 304 tests in ~10s**
 
 ---
 
@@ -244,14 +262,14 @@ MAIL_PORT=587
 - [x] Order checkout — atomic transaction, pessimistic locking, stock decrement
 - [x] Order management — list, detail, cancel with stock restore + inventory log
 - [x] Admin product management — create, update, delete (with referential integrity guard)
+- [x] Admin order management — list all, status transitions (FSM), cancel with stock restore
+- [x] Admin user management — list, view, deactivate, reactivate, role promotion/demotion
 - [x] RBAC — CUSTOMER and ADMIN roles enforced at dependency level
 - [x] Rate limiting, structured logging, request ID tracing
-- [x] 190+ test files (unit, integration, API, middleware)
+- [x] 304 tests (unit, integration, API, middleware) — 304 passing in ~10s with pytest-xdist
 - [x] GitHub Actions CI pipeline
 
 ### Building Now
-- [ ] Admin order status management
-- [ ] Basic admin user management
 - [ ] Docker + docker-compose setup
 - [ ] Deploy (Epic 1 close)
 

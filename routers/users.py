@@ -3,6 +3,7 @@ from utils.deps import db_dependency, active_user_dependency
 from services.email import send_email
 from models.users import User
 from utils.hashing import verify_password, get_password_hash
+from schemas.users import UserOut
 from schemas.auth import ChangePasswordRequest, DeactivateUserRequest
 from services.token import TokenService
 from datetime import datetime, timezone, timedelta
@@ -19,19 +20,13 @@ router = APIRouter(
     tags=["users"]
 )
 
-@router.get("/me", status_code=status.HTTP_200_OK)
+@router.get("/me", response_model= UserOut, status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute")
 async def get_user_info(request: Request, current_user: active_user_dependency, db: db_dependency):
     """
     Get current user info (protected endpoint).
     """
-    return {
-        "id": current_user.id,
-        "email": current_user.email,
-        "first_name": current_user.first_name,
-        "last_name": current_user.last_name,
-        "phone_number": current_user.phone_number
-    }
+    return current_user
 
 
 @router.put("/me/password", status_code=status.HTTP_200_OK)

@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     LOG_DIR: str = "logs"
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     REDIS_URL: str = "redis://localhost:6379/0"
+    BASE_URL: str = "http://localhost:8000"
 
 
 settings = Settings()

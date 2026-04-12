@@ -4,11 +4,15 @@ from schemas.auth import CreateUserRequest
 from sqlalchemy.orm import Session
 from utils.verification import generate_verification_code, get_code_expiry_time
 from services.email import send_email
+from utils.email_templates import verification_email, password_reset_email
 from fastapi import HTTPException, BackgroundTasks
 from starlette import status
 from utils.logger import get_logger
 from schemas.auth import VerifyEmailRequest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from core.config import settings
+from services.token import TokenService
+import secrets
 
 logger = get_logger(__name__)
 
@@ -60,18 +64,7 @@ class AuthService:
             raise
 
         subject = "Verify Your Email - E-commerce App"
-        email_body=f"""
-        <html>
-        <body>
-            <h2>Welcome to E-Commerce App!</h2>
-            <p>Your verification code is:</p>
-            <h1 style="color: #4CAF50; font-size: 32px;">{code}</h1>
-            <p>This code will expire in 10 minutes.</p>
-            <p>If you didn't request this, please ignore this email.</p>
-        </body>
-        </html>
-            """
-        bg.add_task(send_email, to_email=request.email, subject=subject, body=email_body)
+        bg.add_task(send_email, to_email=request.email, subject=subject, body=verification_email(code))
 
         db.refresh(model)
         return model
@@ -165,3 +158,62 @@ class AuthService:
         model = db.query(User).filter(User.id == user_id, User.is_active).one_or_none()
 
         return model
+
+    @staticmethod
+    def forgot_password(db: Session, email: str, bg: BackgroundTasks) -> None:
+        """Generate a password reset token and dispatch a reset email.
+
+        Silent no-op for unknown emails — prevents user enumeration.
+        """
+        model = db.query(User).filter(User.email == email).first()
+
+        if not model:
+            logger.info("Password reset requested for non-existent email", extra={"email": email})
+            return
+
+        reset_token = secrets.token_urlsafe(32)
+        model.password_reset_token = reset_token
+        model.password_reset_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+
+        try:
+            db.commit()
+        except Exception:
+            logger.error("Forgot password commit failed", extra={"email": email}, exc_info=True)
+            db.rollback()
+            raise
+
+        reset_url = f"{settings.BASE_URL}/auth/reset-password?token={reset_token}"
+        bg.add_task(send_email, to_email=model.email, subject="Reset Your Password", body=password_reset_email(reset_url))
+
+        logger.info("Password reset email sent", extra={"user_id": model.id, "email": model.email})
+
+    @staticmethod
+    def reset_password(db: Session, token: str, new_password: str) -> None:
+        """Apply a new password from a valid reset token and revoke all sessions.
+
+        Raises:
+            HTTPException 400: If token is invalid or expired.
+        """
+        model = db.query(User).filter(
+            User.password_reset_token == token,
+            User.password_reset_expires_at > datetime.now(timezone.utc)
+        ).first()
+
+        if not model:
+            logger.warning("Password reset failed — invalid or expired token")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token")
+
+        model.hashed_password = get_password_hash(new_password)
+        model.password_reset_token = None
+        model.password_reset_expires_at = None
+
+        try:
+            db.commit()
+        except Exception:
+            logger.error("Reset password commit failed", extra={"user_id": model.id}, exc_info=True)
+            db.rollback()
+            raise
+
+        TokenService.revoke_all_user_tokens(model.id, db)
+
+        logger.info("Password reset successfully", extra={"user_id": model.id, "email": model.email})

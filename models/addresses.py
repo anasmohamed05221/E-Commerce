@@ -14,6 +14,7 @@ class Address(Base, CreatedAtMixin):
 
     #relationships
     user = relationship("User", back_populates="addresses")
+    orders = relationship("Order", back_populates="address")
 
     label = Column(String(50))
     street = Column(String(255), nullable=False)

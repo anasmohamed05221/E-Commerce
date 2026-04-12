@@ -1,4 +1,14 @@
+from fastapi import BackgroundTasks
 from utils.hashing import verify_password
+from services.users import UserService
+
+
+def _setup_pending_change(session, user) -> str:
+    """Put user into pending password change state and return the token."""
+    bg = BackgroundTasks()
+    UserService.request_password_change(session, user, "TestPassword123!", "NewPass123!", bg)
+    session.refresh(user)
+    return user.password_change_token
 
 
 async def test_change_password_success(client, verified_user, session):
@@ -102,7 +112,43 @@ async def test_change_password_invalid_token(client):
             "new_password": "NewSecurePass456!"
         }
     )
-    
+
     assert response.status_code == 401
 
 
+# --- confirm-password-change ---
+
+async def test_confirm_password_change_success(client, verified_user, session):
+    """Valid token in request body applies the pending password change."""
+    token = _setup_pending_change(session, verified_user)
+
+    response = await client.post("/users/confirm-password-change", json={"token": token})
+
+    assert response.status_code == 200
+    assert "password updated" in response.json()["message"].lower()
+
+
+async def test_confirm_password_change_invalid_token(client):
+    """Unknown token returns 400."""
+    response = await client.post("/users/confirm-password-change", json={"token": "invalidtoken"})
+
+    assert response.status_code == 400
+
+
+# --- deny-password-change ---
+
+async def test_deny_password_change_success(client, verified_user, session):
+    """Valid token in request body cancels the pending password change."""
+    token = _setup_pending_change(session, verified_user)
+
+    response = await client.post("/users/deny-password-change", json={"token": token})
+
+    assert response.status_code == 200
+    assert "cancelled" in response.json()["message"].lower()
+
+
+async def test_deny_password_change_invalid_token(client):
+    """Unknown token returns 400."""
+    response = await client.post("/users/deny-password-change", json={"token": "invalidtoken"})
+
+    assert response.status_code == 400

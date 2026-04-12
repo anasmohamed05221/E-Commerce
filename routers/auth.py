@@ -1,17 +1,11 @@
-from fastapi import APIRouter, HTTPException, Depends, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, Request, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from utils.deps import db_dependency
 from starlette import status
-from schemas.auth import (Token, VerifyEmailRequest, CreateUserRequest, ForgotPasswordRequest
-,RevokeTokenRequest, RefreshTokenRequest, ResetPasswordRequest)
+from schemas.auth import (Token, VerifyEmailRequest, CreateUserRequest, ForgotPasswordRequest,
+                          RevokeTokenRequest, RefreshTokenRequest, ResetPasswordRequest)
 from services.auth import AuthService
 from services.token import TokenService
-from models.users import User
-from datetime import datetime, timezone
-from utils.hashing import get_password_hash
-from services.email import send_email
-import secrets
-from datetime import timedelta
 from middleware.rate_limiter import limiter
 from utils.logger import get_logger
 
@@ -27,7 +21,7 @@ router = APIRouter(
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 @limiter.limit("3/minute")
-async def create_user(request: Request, body: CreateUserRequest, db: db_dependency, bg: BackgroundTasks):
+def create_user(request: Request, body: CreateUserRequest, db: db_dependency, bg: BackgroundTasks):
     """Register a new user and send verification email."""
     user = AuthService.create_user(body, db, bg)
 
@@ -41,7 +35,7 @@ async def create_user(request: Request, body: CreateUserRequest, db: db_dependen
 
 @router.post("/token", response_model=Token)
 @limiter.limit("5/minute")
-async def login_for_access_token(request: Request, db: db_dependency, form_data: OAuth2PasswordRequestForm = Depends()):
+def login_for_access_token(request: Request, db: db_dependency, form_data: OAuth2PasswordRequestForm = Depends()):
     """Authenticate user and return access + refresh token pair."""
     user = AuthService.authenticate_user(form_data.username, form_data.password, db)
 
@@ -83,7 +77,7 @@ def verify_email(request: Request, body: VerifyEmailRequest, db: db_dependency):
 
 @router.post("/refresh", response_model=Token)
 @limiter.limit("10/minute")
-async def refresh_token(request: Request, body: RefreshTokenRequest, db: db_dependency):
+def refresh_token(request: Request, body: RefreshTokenRequest, db: db_dependency):
     """
     Get new access token using refresh token.
     """
@@ -97,7 +91,7 @@ async def refresh_token(request: Request, body: RefreshTokenRequest, db: db_depe
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
-async def logout(request: Request, body: RevokeTokenRequest, db: db_dependency):
+def logout(request: Request, body: RevokeTokenRequest, db: db_dependency):
     """
     Revoke refresh token (logout).
     """
@@ -110,116 +104,16 @@ async def logout(request: Request, body: RevokeTokenRequest, db: db_dependency):
 
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
 @limiter.limit("3/minute")
-async def forgot_password_request(request: Request, body: ForgotPasswordRequest, db: db_dependency, bg: BackgroundTasks):
-    """
-    Request password reset. via email.
-    """
-    model = db.query(User).filter(body.email == User.email).first()
-    
-    if not model:
-        logger.info("Password reset requested for non-existent email",
-        extra= {"email": body.email})
-        return {"message": "If that email exists, a reset link has been sent."}
-
-    # Generate reset token
-    reset_token = secrets.token_urlsafe(32)
-    
-    # Store token
-    model.password_reset_token = reset_token
-    model.password_reset_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
-    
-    db.commit()
-
-    # Send reset email
-    reset_url = f"http://localhost:8000/auth/reset-password?token={reset_token}"
-
-    
-    to_email=model.email
-    subject="Reset Your Password"
-    email_body=f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #2c3e50;">Password Reset Request</h2>
-            <p>We received a request to reset your password.</p>
-            
-            <div style="margin: 30px 0;">
-                <p>Click the button below to reset your password:</p>
-                <a href="{reset_url}" 
-                style="display: inline-block; padding: 14px 28px; background-color: #3498db; 
-                        color: white; text-decoration: none; border-radius: 4px; margin: 10px 0;
-                        font-weight: bold;">
-                    Reset Password
-                </a>
-            </div>
-            
-            <p style="color: #666; font-size: 14px; margin-top: 30px;">
-                ⏰ This link expires in 15 minutes.
-            </p>
-            
-            <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin: 20px 0;">
-                <p style="margin: 0; color: #856404;">
-                    <strong>⚠️ Security Notice:</strong> If you didn't request this password reset, please ignore this email. Your password will remain unchanged.
-                </p>
-            </div>
-            
-            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-            
-            <p style="color: #999; font-size: 12px;">
-                If you're having trouble clicking the button, copy and paste this URL into your browser:
-                <br><br>
-                {reset_url}
-            </p>
-        </div>
-    </body>
-    </html>
-    """
-
-    bg.add_task(send_email, to_email=to_email, subject=subject, body=email_body)
-    
-    logger.info(
-        "Password reset email sent",
-        extra={"user_id": model.id, "email": model.email}
-    )
-
+def forgot_password_request(request: Request, body: ForgotPasswordRequest, db: db_dependency, bg: BackgroundTasks):
+    """Request password reset via email."""
+    AuthService.forgot_password(db, body.email, bg)
     return {"message": "If that email exists, a reset link has been sent."}
 
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
 @limiter.limit("5/minute")
-async def reset_password(request: Request, body: ResetPasswordRequest, db: db_dependency):
-    """
-    Reset Password (public endpoint).
-    """
-    # Find user with this token
-    model = db.query(User).filter(
-        User.password_reset_token == body.token,
-        User.password_reset_expires_at > datetime.now(timezone.utc)
-    ).first()
-    
-    if not model:
-        logger.warning("Password reset failed - invalid or expired token")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired token"
-        )
-    
-    # Update password
-    model.hashed_password = get_password_hash(body.new_password)
-    
-    # Clear pending change fields
-    model.password_reset_token = None
-    model.password_reset_expires_at = None
-    
-    db.commit()
-    
-    # Revoke all refresh tokens (force re-login everywhere)
-    TokenService.revoke_all_user_tokens(model.id, db)
-
-    logger.info(
-        "Password reset successfully",
-        extra={"user_id": model.id, "email": model.email}
-    )
-    
+def reset_password(request: Request, body: ResetPasswordRequest, db: db_dependency):
+    """Reset password using a valid reset token (public endpoint)."""
+    AuthService.reset_password(db, body.token, body.new_password)
     return {"message": "Password updated successfully. Please login again."}
 

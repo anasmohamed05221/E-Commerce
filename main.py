@@ -64,7 +64,7 @@ app.add_middleware(
     allow_origins=settings.CORS_ORIGINS,       # frontend URL
     allow_credentials=True,                    # Allow auth headers/cookies
     allow_methods=["*"],                       # All HTTP methods
-    allow_headers=["*"],                       # All headers
+    allow_headers=["Authorization", "Content-Type"],                       # All headers
 )
 
 

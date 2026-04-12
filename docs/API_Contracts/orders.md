@@ -4,7 +4,81 @@ This document defines the API contract for order-related endpoints in the MVP ve
 
 ---
 
-# 1. List Orders
+# 1. Checkout (Create Order)
+
+## Request
+
+**POST** `/orders/`
+
+Rate limit: 5/minute
+
+- Requires `Authorization: Bearer <access_token>`.
+
+Request body:
+
+{
+  "address_id": 1,
+  "payment_method": "cod"
+}
+
+## Validation Rules
+
+- `address_id`: required, must be an address belonging to the current user.
+- `payment_method`: required, must be `"cod"` (MVP only).
+
+---
+
+## Response (201 Created)
+
+Example:
+
+{
+  "id": 7,
+  "total_amount": 1050.00,
+  "status": "pending",
+  "payment_method": "cod",
+  "items": [
+    {
+      "id": 1,
+      "product": {
+        "id": 3,
+        "name": "Laptop",
+        "price": 1000.00,
+        "image_url": "..."
+      },
+      "price_at_time": 1000.00,
+      "quantity": 1,
+      "subtotal": 1000.00
+    }
+  ],
+  "created_at": "2026-04-12T10:00:00",
+  "updated_at": "2026-04-12T10:00:00"
+}
+
+---
+
+## Notes
+
+- The cart must be non-empty.
+- Stock is validated before and after acquiring a row-level lock (pessimistic locking / SELECT FOR UPDATE).
+- On success: order is created, stock is decremented, cart is cleared — all atomically.
+- `price_at_time` reflects the product price at moment of purchase (price snapshot).
+- `address_id` must belong to the authenticated user.
+
+---
+
+## Errors
+
+- `400 Bad Request` — cart is empty.
+- `401 Unauthorized` — missing or invalid token.
+- `404 Not Found` — address not found or belongs to another user.
+- `409 Conflict` — insufficient stock for one or more items.
+- `422 Unprocessable Entity` — missing required fields.
+- `429 Too Many Requests` — rate limit exceeded.
+
+---
+
+# 2. List Orders
 
 ## Request
 
@@ -146,6 +220,17 @@ Returns the updated order in full `OrderOut` format (same as Order Detail respon
   - The entire operation is atomic — if any step fails, the whole transaction rolls back.
 - Ownership is enforced: a user can only cancel their own orders.
 - Concurrent cancel requests on the same order are safe: pessimistic locking ensures only one succeeds.
+
+---
+
+## Order Status Lifecycle
+
+Valid order statuses and transitions (FSM):
+
+- `pending` → `confirmed` (admin)
+- `confirmed` → `shipped` (admin)
+- `shipped` → `completed` (admin)
+- Any non-terminal status → `cancelled` (customer: pending only; admin: pending or confirmed)
 
 ---
 

@@ -115,18 +115,19 @@ class OrderService:
         Returns False for same-status checks — caller handles that separately.
         """
         allowed_transitions = {
-            OrderStatus.PENDING: [OrderStatus.CONFIRMED],
-            OrderStatus.CONFIRMED: [OrderStatus.COMPLETED]
+            OrderStatus.PENDING: OrderStatus.CONFIRMED,
+            OrderStatus.CONFIRMED: OrderStatus.SHIPPED,
+            OrderStatus.SHIPPED: OrderStatus.COMPLETED
         }
 
         if current_status not in allowed_transitions.keys():
             return False
-        return new_status in allowed_transitions[current_status]
+        return new_status == allowed_transitions[current_status]
     
     
     @staticmethod
     def update_order_status(db: Session, new_status: OrderStatus, order_id: int):
-        """Advance an order through its lifecycle (PENDING→CONFIRMED→COMPLETED).
+        """Advance an order through its lifecycle (PENDING→CONFIRMED→SHIPPED→COMPLETED).
 
         Locks the order row before validation to prevent TOCTOU races.
         Cancellation is not handled here — use cancel_order / admin_cancel_order.

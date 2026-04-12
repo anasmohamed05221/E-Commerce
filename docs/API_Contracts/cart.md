@@ -170,7 +170,40 @@ Example:
 
 ---
 
-# 4. Remove Item from Cart
+# 4. Clear Cart
+
+## Request
+
+**DELETE** `/cart`
+
+Rate limit: 5/minute
+
+- Requires `Authorization: Bearer <access_token>`.
+- No request body.
+
+---
+
+## Response (204 No Content)
+
+No response body.
+
+---
+
+## Notes
+
+- Removes all items from the authenticated user's cart in a single operation.
+- Idempotent: calling this on an already-empty cart returns `204` (not an error).
+
+---
+
+## Errors
+
+- `401 Unauthorized` — missing or invalid token.
+- `429 Too Many Requests` — rate limit exceeded.
+
+---
+
+# 5. Remove Item from Cart
 
 ## Request
 

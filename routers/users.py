@@ -16,14 +16,14 @@ router = APIRouter(
 
 @router.get("/me", response_model=UserOut, status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute")
-async def get_user_info(request: Request, current_user: active_user_dependency, db: db_dependency):
+def get_user_info(request: Request, current_user: active_user_dependency, db: db_dependency):
     """Get current user info (protected endpoint)."""
     return current_user
 
 
 @router.put("/me/password", status_code=status.HTTP_200_OK)
 @limiter.limit("2/minute")
-async def change_password_request(request: Request, body: ChangePasswordRequest,
+def change_password_request(request: Request, body: ChangePasswordRequest,
                                    current_user: active_user_dependency, db: db_dependency, bg: BackgroundTasks):
     """Request password change. Sends confirmation email."""
     UserService.request_password_change(db, current_user, body.current_password, body.new_password, bg)
@@ -31,14 +31,14 @@ async def change_password_request(request: Request, body: ChangePasswordRequest,
 
 
 @router.post("/confirm-password-change", status_code=status.HTTP_200_OK)
-async def confirm_password_change(token_body: PasswordChangeToken, db: db_dependency):
+def confirm_password_change(token_body: PasswordChangeToken, db: db_dependency):
     """Confirm password change (public endpoint)."""
     UserService.confirm_password_change(db, token_body.token)
     return {"message": "Password updated successfully. Please login again."}
 
 
 @router.post("/deny-password-change", status_code=status.HTTP_200_OK)
-async def deny_password_change(token_body: PasswordChangeToken, db: db_dependency, bg: BackgroundTasks):
+def deny_password_change(token_body: PasswordChangeToken, db: db_dependency, bg: BackgroundTasks):
     """Deny password change and logout all sessions (public endpoint)."""
     UserService.deny_password_change(db, token_body.token, bg)
     return {"message": "Password change cancelled. All sessions logged out."}
@@ -46,7 +46,7 @@ async def deny_password_change(token_body: PasswordChangeToken, db: db_dependenc
 
 @router.delete("/deactivate", status_code=status.HTTP_200_OK)
 @limiter.limit("3/minute")
-async def deactivate_user(request: Request, body: DeactivateUserRequest,
+def deactivate_user(request: Request, body: DeactivateUserRequest,
                            current_user: active_user_dependency, db: db_dependency):
     """Deactivate user account and revoke all sessions (protected endpoint)."""
     UserService.deactivate_self(db, current_user, body.password)

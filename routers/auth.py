@@ -21,7 +21,7 @@ router = APIRouter(
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 @limiter.limit("3/minute")
-async def create_user(request: Request, body: CreateUserRequest, db: db_dependency, bg: BackgroundTasks):
+def create_user(request: Request, body: CreateUserRequest, db: db_dependency, bg: BackgroundTasks):
     """Register a new user and send verification email."""
     user = AuthService.create_user(body, db, bg)
 
@@ -35,7 +35,7 @@ async def create_user(request: Request, body: CreateUserRequest, db: db_dependen
 
 @router.post("/token", response_model=Token)
 @limiter.limit("5/minute")
-async def login_for_access_token(request: Request, db: db_dependency, form_data: OAuth2PasswordRequestForm = Depends()):
+def login_for_access_token(request: Request, db: db_dependency, form_data: OAuth2PasswordRequestForm = Depends()):
     """Authenticate user and return access + refresh token pair."""
     user = AuthService.authenticate_user(form_data.username, form_data.password, db)
 
@@ -77,7 +77,7 @@ def verify_email(request: Request, body: VerifyEmailRequest, db: db_dependency):
 
 @router.post("/refresh", response_model=Token)
 @limiter.limit("10/minute")
-async def refresh_token(request: Request, body: RefreshTokenRequest, db: db_dependency):
+def refresh_token(request: Request, body: RefreshTokenRequest, db: db_dependency):
     """
     Get new access token using refresh token.
     """
@@ -91,7 +91,7 @@ async def refresh_token(request: Request, body: RefreshTokenRequest, db: db_depe
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
-async def logout(request: Request, body: RevokeTokenRequest, db: db_dependency):
+def logout(request: Request, body: RevokeTokenRequest, db: db_dependency):
     """
     Revoke refresh token (logout).
     """
@@ -104,7 +104,7 @@ async def logout(request: Request, body: RevokeTokenRequest, db: db_dependency):
 
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
 @limiter.limit("3/minute")
-async def forgot_password_request(request: Request, body: ForgotPasswordRequest, db: db_dependency, bg: BackgroundTasks):
+def forgot_password_request(request: Request, body: ForgotPasswordRequest, db: db_dependency, bg: BackgroundTasks):
     """Request password reset via email."""
     AuthService.forgot_password(db, body.email, bg)
     return {"message": "If that email exists, a reset link has been sent."}
@@ -112,7 +112,7 @@ async def forgot_password_request(request: Request, body: ForgotPasswordRequest,
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
 @limiter.limit("5/minute")
-async def reset_password(request: Request, body: ResetPasswordRequest, db: db_dependency):
+def reset_password(request: Request, body: ResetPasswordRequest, db: db_dependency):
     """Reset password using a valid reset token (public endpoint)."""
     AuthService.reset_password(db, body.token, body.new_password)
     return {"message": "Password updated successfully. Please login again."}

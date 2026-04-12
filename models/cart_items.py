@@ -15,8 +15,8 @@ class CartItem(Base, CreatedAtMixin):
     id = Column(Integer, primary_key=True, index=True)
 
     #fk
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
 
     #relationships
     user = relationship("User", back_populates="cart_items")

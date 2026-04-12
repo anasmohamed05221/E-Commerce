@@ -17,3 +17,6 @@ class InventoryChangeReason(str, Enum):
 class UserRole(str, Enum):
     CUSTOMER = "customer"
     ADMIN = "admin"
+
+class PaymentMethod(str, Enum):
+    COD = "cod"

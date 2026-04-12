@@ -13,7 +13,7 @@ class User(Base):
     orders = relationship("Order", back_populates="user")
     cart_items = relationship("CartItem", back_populates="user", passive_deletes=True)
     refresh_tokens = relationship("RefreshToken", back_populates="user")
-    
+    addresses = relationship("Address", back_populates="user", passive_deletes=True)
     
     email = Column(String(255), unique=True, nullable=False)
     first_name = Column(String, nullable=False)

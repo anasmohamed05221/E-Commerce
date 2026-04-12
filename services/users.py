@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 from models.users import User
 from models.enums import UserRole
 from services.email import send_email
+from utils.email_templates import password_change_request_email, password_change_denied_email
 from services.token import TokenService
+from core.config import settings
 from utils.hashing import verify_password, get_password_hash
 
 from typing import Optional
@@ -40,54 +42,12 @@ class UserService:
             db.rollback()
             raise
 
-        confirm_url = f"http://localhost:8000/users/confirm-password-change?token={confirmation_token}"
-        deny_url = f"http://localhost:8000/users/deny-password-change?token={confirmation_token}"
-
-        email_body = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2 style="color: #2c3e50;">Password Change Request</h2>
-                <p>A password change was requested for your account.</p>
-
-                <div style="margin: 30px 0;">
-                    <p><strong>If this was you:</strong></p>
-                    <a href="{confirm_url}"
-                    style="display: inline-block; padding: 12px 24px; background-color: #4CAF50;
-                            color: white; text-decoration: none; border-radius: 4px; margin: 10px 0;">
-                        ✓ Yes, Confirm Password Change
-                    </a>
-                </div>
-
-                <div style="margin: 30px 0;">
-                    <p><strong>If this was NOT you:</strong></p>
-                    <a href="{deny_url}"
-                    style="display: inline-block; padding: 12px 24px; background-color: #f44336;
-                            color: white; text-decoration: none; border-radius: 4px; margin: 10px 0;">
-                        ✗ No, Deny and Logout All Sessions
-                    </a>
-                </div>
-
-                <p style="color: #666; font-size: 14px; margin-top: 30px;">
-                    ⏰ This link expires in 15 minutes.
-                </p>
-
-                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-
-                <p style="color: #999; font-size: 12px;">
-                    If you're having trouble clicking the buttons, copy and paste the URLs below into your browser:
-                    <br><br>
-                    Confirm: {confirm_url}
-                    <br>
-                    Deny: {deny_url}
-                </p>
-            </div>
-        </body>
-        </html>
-        """
+        confirm_url = f"{settings.BASE_URL}/users/confirm-password-change?token={confirmation_token}"
+        deny_url = f"{settings.BASE_URL}/users/deny-password-change?token={confirmation_token}"
 
         bg.add_task(send_email, to_email=current_user.email,
-                    subject="Confirm Password Change", body=email_body)
+                    subject="Confirm Password Change",
+                    body=password_change_request_email(confirm_url, deny_url))
 
 
     @staticmethod
@@ -145,16 +105,9 @@ class UserService:
 
         TokenService.revoke_all_user_tokens(user.id, db)
 
-        email_body = """
-        A password change request for your account was denied.
-
-        All active sessions have been logged out for security.
-
-        If you did not request this change, please secure your account immediately.
-        """
-
         bg.add_task(send_email, to_email=user.email,
-                    subject="Security Alert: Password Change Denied", body=email_body)
+                    subject="Security Alert: Password Change Denied",
+                    body=password_change_denied_email())
 
 
     @staticmethod

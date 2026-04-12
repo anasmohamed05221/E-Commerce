@@ -2,6 +2,11 @@ from pydantic import BaseModel
 from models.enums import UserRole
 from typing import Optional
 
+
+class PasswordChangeToken(BaseModel):
+    token: str
+    
+
 class UserOut(BaseModel):
     id: int
     email: str

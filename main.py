@@ -18,6 +18,8 @@ from core.logging_config import setup_logging, get_logger
 from middleware import RequestIDMiddleware, get_request_id
 from core.config import settings
 from fastapi.responses import JSONResponse
+from utils.deps import db_dependency
+from sqlalchemy import text
 
 # CORS imports
 from fastapi.middleware.cors import CORSMiddleware
@@ -64,7 +66,7 @@ app.add_middleware(
     allow_origins=settings.CORS_ORIGINS,       # frontend URL
     allow_credentials=True,                    # Allow auth headers/cookies
     allow_methods=["*"],                       # All HTTP methods
-    allow_headers=["*"],                       # All headers
+    allow_headers=["Authorization", "Content-Type"],                       # All headers
 )
 
 
@@ -113,9 +115,29 @@ app.add_middleware(RequestIDMiddleware)
 
 # Health check
 @app.get("/health")
-async def health_check():
-    logger.info("Health check ping received", extra={"status": "ok"})
-    return {"status": "Healthy", "timestamp": time.time()}
+async def health_check(db: db_dependency):
+    """Readiness probe — verifies PostgreSQL and Redis are reachable."""
+    health = {"postgres": "ok", "redis": "ok"}
+    failed = False
+
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:
+        health["postgres"] = "unavailable"
+        failed = True
+
+    try:
+        await redis_client.redis.ping()
+    except Exception:
+        health["redis"] = "unavailable"
+        failed = True
+
+    if failed:
+        logger.error("Health check failed", extra=health)
+        return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=health)
+
+    logger.info("Health check passed", extra=health)
+    return health
 
 
 # Global exception handler

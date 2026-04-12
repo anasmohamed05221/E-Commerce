@@ -16,10 +16,10 @@ router = APIRouter(
 
 @router.get("/", response_model=AdminOrderListOut, status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
-async def get_all_orders(request: Request,
-                         db: db_dependency, 
-                         admin: admin_dependency, 
-                         limit: int = Query(ge=1, le=50, default=10), 
+def get_all_orders(request: Request,
+                         db: db_dependency,
+                         admin: admin_dependency,
+                         limit: int = Query(ge=1, le=50, default=10),
                          offset: int = Query(ge=0, default=0),
                          status_filter: Optional[OrderStatus] = Query(default=None, alias="status")):
     """Return a paginated list of all orders across all users. Admin only. Optionally filter by status."""
@@ -32,7 +32,7 @@ async def get_all_orders(request: Request,
 
 @router.patch("/{order_id}/status", response_model=AdminOrderOut, status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute")
-async def update_order_status(request: Request, db: db_dependency, admin: admin_dependency, order_id: int,  body: OrderStatusUpdate):
+def update_order_status(request: Request, db: db_dependency, admin: admin_dependency, order_id: int,  body: OrderStatusUpdate):
     """Update an order's status. Admin only. Returns 404 if not found, 409 if the transition is invalid or unchanged."""
     order = OrderService.update_order_status(db, body.status, order_id)
 
@@ -43,7 +43,7 @@ async def update_order_status(request: Request, db: db_dependency, admin: admin_
 
 @router.post("/{order_id}/cancel", response_model=AdminOrderOut, status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute")
-async def cancel_order(request: Request, db: db_dependency, admin: admin_dependency, order_id: int):
+def cancel_order(request: Request, db: db_dependency, admin: admin_dependency, order_id: int):
     """Cancel an order. Admin only. Allowed for PENDING and CONFIRMED orders."""
     order = OrderService.admin_cancel_order(db, order_id)
     logger.info("Order cancelled by admin", extra={"admin_id": admin.id, "order_id": order_id})

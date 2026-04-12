@@ -90,13 +90,15 @@ Request body:
 
 ## Request
 
-**GET** `/users/confirm-password-change`
+**POST** `/users/confirm-password-change`
 
-Public endpoint (no auth required — accessed via email link).
+Public endpoint (no auth required).
 
-Query parameter:
+Request body:
 
-- `token` (string, required) — the confirmation token from the email link.
+{
+  "token": "the-confirmation-token-from-the-email"
+}
 
 ---
 
@@ -112,6 +114,7 @@ Query parameter:
 
 - Applies the pending password hash to the user's account.
 - Revokes all active refresh tokens (forces re-login on all devices).
+- Token is accepted in the request body (not as a URL query parameter) to prevent leakage in server logs and browser history.
 
 ---
 
@@ -125,13 +128,15 @@ Query parameter:
 
 ## Request
 
-**GET** `/users/deny-password-change`
+**POST** `/users/deny-password-change`
 
-Public endpoint (no auth required — accessed via email link).
+Public endpoint (no auth required).
 
-Query parameter:
+Request body:
 
-- `token` (string, required) — the confirmation token from the email link.
+{
+  "token": "the-confirmation-token-from-the-email"
+}
 
 ---
 

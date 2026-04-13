@@ -1,5 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator, model_validator, Field
 from models.enums import UserRole
+from utils.validators import validate_phone
 from typing import Optional
 
 
@@ -17,6 +18,23 @@ class UserOut(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+
+class UpdateProfileRequest(BaseModel):
+    first_name: Optional[str] = Field(min_length=1, max_length=50, default=None)
+    last_name: Optional[str] = Field(min_length=1, max_length=50, default=None)
+    phone_number: Optional[str] = None
+
+    @model_validator(mode="after")
+    def not_all_fields_empty(self):
+        if not self.model_fields_set:
+            raise ValueError("At least one field must be provided for update")
+        return self
+    
+    @field_validator('phone_number')
+    @classmethod
+    def validate_phone(cls, value):
+        return validate_phone(value)
 
 
 class AdminUserOut(UserOut):

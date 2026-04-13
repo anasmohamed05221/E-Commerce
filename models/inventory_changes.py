@@ -11,11 +11,11 @@ class InventoryChange(Base, CreatedAtMixin):
     id = Column(Integer, primary_key=True, index=True)
     
     #fk
-    product_id = Column(Integer, ForeignKey("products.id"))
-    
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+
     #relationships
     product = relationship("Product", back_populates="inventory_changes")
 
 
-    change_amount = Column(Integer)
-    reason = Column(Enum(InventoryChangeReason, values_callable=lambda obj: [e.value for e in obj], name="reason"))
+    change_amount = Column(Integer, nullable=False)
+    reason = Column(Enum(InventoryChangeReason, values_callable=lambda obj: [e.value for e in obj], name="reason"), nullable=False)

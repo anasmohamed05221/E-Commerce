@@ -32,6 +32,7 @@ import models.orders
 import models.order_items
 import models.inventory_changes
 import models.refresh_tokens
+import models.addresses
 
 
 target_metadata = Base.metadata

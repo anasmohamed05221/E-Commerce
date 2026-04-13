@@ -4,9 +4,10 @@ from models.orders import Order
 from models.order_items import OrderItem
 from models.cart_items import CartItem
 from models.products import Product
+from models.addresses import Address
 from services.cart import CartService
 from models.inventory_changes import InventoryChange
-from models.enums import InventoryChangeReason
+from models.enums import InventoryChangeReason, PaymentMethod, OrderStatus
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -76,17 +77,28 @@ class CheckoutService:
 
 
     @staticmethod
-    def checkout(db: Session, user_id: int) -> Order:
+    def checkout(db: Session, user_id: int, address_id: int, payment_method: PaymentMethod) -> Order:
         """Execute the full checkout flow as a single atomic transaction.
 
         Validates cart, creates order with items, decrements stock,
         logs inventory changes, and clears the cart.
         """
+        # Address ownership validation
+        address = db.query(Address).filter(Address.id == address_id, Address.user_id == user_id).first()
+        if address is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Address not found.")
+        
         # Fetch user's cart items
         cart_items = CheckoutService._validate_cart(db, user_id)
         # Create order
         total_amount = CartService.calculate_cart_total_price(cart_items)
-        order = Order(user_id=user_id, total_amount=total_amount, status="pending")
+        order = Order(
+            user_id=user_id, 
+            total_amount=total_amount, 
+            status=OrderStatus.PENDING, 
+            address_id=address_id, 
+            payment_method=payment_method
+        )
         db.add(order)
         db.flush()
 

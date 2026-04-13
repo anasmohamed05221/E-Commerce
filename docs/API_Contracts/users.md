@@ -38,7 +38,61 @@ Rate limit: 30/minute
 
 ---
 
-# 2. Request Password Change
+# 2. Update Profile
+
+## Request
+
+**PUT** `/users/me`
+
+Rate limit: 10/minute
+
+- Requires `Authorization: Bearer <access_token>`.
+
+Request body (all fields optional, but at least one must be provided):
+
+{
+  "first_name": "Ahmed",
+  "last_name": "Hassan",
+  "phone_number": "+201234567890"
+}
+
+## Validation Rules
+
+- At least one field must be present (empty body returns `422`).
+- `phone_number`: optional string, no format enforcement at the API layer.
+
+---
+
+## Response (200 OK)
+
+Returns the updated user object:
+
+{
+  "id": 1,
+  "email": "user@example.com",
+  "first_name": "Ahmed",
+  "last_name": "Hassan",
+  "phone_number": "+201234567890"
+}
+
+---
+
+## Notes
+
+- Only the provided fields are updated — omitted fields are left unchanged.
+- Email cannot be changed via this endpoint.
+
+---
+
+## Errors
+
+- `401 Unauthorized` — missing or invalid token, or account is inactive.
+- `422 Unprocessable Entity` — all fields are null (nothing to update).
+- `429 Too Many Requests` — rate limit exceeded.
+
+---
+
+# 3. Request Password Change
 
 ## Request
 

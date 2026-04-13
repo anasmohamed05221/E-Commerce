@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from models.users import User
 from models.enums import UserRole
 from services.email import send_email
+from schemas.users import UpdateProfileRequest
 from utils.email_templates import password_change_request_email, password_change_denied_email
 from services.token import TokenService
 from core.config import settings
@@ -108,6 +109,22 @@ class UserService:
         bg.add_task(send_email, to_email=user.email,
                     subject="Security Alert: Password Change Denied",
                     body=password_change_denied_email())
+
+
+    @staticmethod
+    def update_profile(db: Session, user: User, data: UpdateProfileRequest) -> User:
+        """Partially update user profile (name, phone number)"""
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(user, field, value)
+
+        try:
+            db.commit()
+        except Exception:
+            logger.error("Profile update commit failed", extra={"user_id": user.id}, exc_info=True)
+            db.rollback()
+            raise
+        db.refresh(user)
+        return user
 
 
     @staticmethod

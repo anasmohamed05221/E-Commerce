@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, Field
 from utils.validators import validate_password, validate_phone
 
 class Token(BaseModel):
@@ -9,8 +9,8 @@ class Token(BaseModel):
 
 class CreateUserRequest(BaseModel):
     email: EmailStr
-    first_name: str 
-    last_name: str
+    first_name: str = Field(min_length=1, max_length=50)
+    last_name: str = Field(min_length=1, max_length=50)
     password: str 
     phone_number: str
     

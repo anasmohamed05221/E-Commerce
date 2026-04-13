@@ -1,6 +1,6 @@
 from fastapi import APIRouter, status, Request, BackgroundTasks
 from utils.deps import db_dependency, active_user_dependency
-from schemas.users import UserOut, PasswordChangeToken
+from schemas.users import UserOut, PasswordChangeToken, UpdateProfileRequest
 from schemas.auth import ChangePasswordRequest, DeactivateUserRequest
 from services.users import UserService
 from middleware.rate_limiter import limiter
@@ -19,6 +19,15 @@ router = APIRouter(
 def get_user_info(request: Request, current_user: active_user_dependency, db: db_dependency):
     """Get current user info (protected endpoint)."""
     return current_user
+
+
+@router.patch("/me", response_model=UserOut, status_code=status.HTTP_200_OK)
+@limiter.limit("10/minute")
+def update_profile(request: Request, db: db_dependency, current_user: active_user_dependency, body: UpdateProfileRequest):
+    """Partially update user profile (name, phone number)"""
+    updated_user = UserService.update_profile(db, current_user, body)
+    logger.info("Profile updated successfully", extra={"user_id": current_user.id})
+    return updated_user
 
 
 @router.put("/me/password", status_code=status.HTTP_200_OK)

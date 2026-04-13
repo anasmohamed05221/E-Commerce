@@ -11,7 +11,7 @@ from schemas.users import UpdateProfileRequest
 from utils.email_templates import password_change_request_email, password_change_denied_email
 from services.token import TokenService
 from core.config import settings
-from utils.hashing import verify_password, get_password_hash
+from utils.hashing import verify_password, get_password_hash, hash_token
 
 from typing import Optional
 
@@ -33,7 +33,7 @@ class UserService:
         confirmation_token = secrets.token_urlsafe(32)
 
         current_user.pending_password_hash = get_password_hash(new_password)
-        current_user.password_change_token = confirmation_token
+        current_user.password_change_token = hash_token(confirmation_token)
         current_user.password_change_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
 
         try:
@@ -55,7 +55,7 @@ class UserService:
     def confirm_password_change(db: Session, token: str) -> None:
         """Apply pending password hash and revoke all sessions."""
         user = db.query(User).filter(
-            User.password_change_token == token,
+            User.password_change_token == hash_token(token),
             User.password_change_expires_at > datetime.now(timezone.utc)
         ).first()
 
@@ -86,7 +86,7 @@ class UserService:
     def deny_password_change(db: Session, token: str, bg: BackgroundTasks) -> None:
         """Cancel pending password change, revoke all sessions, and send security alert."""
         user = db.query(User).filter(
-            User.password_change_token == token
+            User.password_change_token == hash_token(token)
         ).first()
 
         if not user:

@@ -4,11 +4,14 @@ from services.users import UserService
 
 
 def _setup_pending_change(session, user) -> str:
-    """Put user into pending password change state and return the token."""
-    bg = BackgroundTasks()
-    UserService.request_password_change(session, user, "TestPassword123!", "NewPass123!", bg)
-    session.refresh(user)
-    return user.password_change_token
+    """Put user into pending password change state and return the RAW token."""
+    from unittest.mock import patch
+    import secrets as _secrets
+    raw_token = _secrets.token_urlsafe(32)
+    with patch("services.users.secrets.token_urlsafe", return_value=raw_token):
+        bg = BackgroundTasks()
+        UserService.request_password_change(session, user, "TestPassword123!", "NewPass123!", bg)
+    return raw_token
 
 
 async def test_change_password_success(client, verified_user, session):

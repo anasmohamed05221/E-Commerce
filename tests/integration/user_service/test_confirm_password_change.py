@@ -6,11 +6,14 @@ from utils.hashing import verify_password
 
 
 def _setup_pending_change(session, user):
-    """Helper: put user into pending password change state."""
-    bg = BackgroundTasks()
-    UserService.request_password_change(session, user, "TestPassword123!", "NewPass123!", bg)
-    session.refresh(user)
-    return user.password_change_token
+    """Helper: put user into pending password change state. Returns the RAW token."""
+    from unittest.mock import patch
+    import secrets as _secrets
+    raw_token = _secrets.token_urlsafe(32)
+    with patch("services.users.secrets.token_urlsafe", return_value=raw_token):
+        bg = BackgroundTasks()
+        UserService.request_password_change(session, user, "TestPassword123!", "NewPass123!", bg)
+    return raw_token
 
 
 def test_confirm_password_change_applies_new_password(session, verified_user):
@@ -35,22 +38,21 @@ def test_confirm_password_change_invalid_token(session, verified_user):
 
 def test_confirm_password_change_expired_token(session, verified_user):
     """Raises 400 when token exists but is expired."""
-    _setup_pending_change(session, verified_user)
+    raw_token = _setup_pending_change(session, verified_user)
     verified_user.password_change_expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
     session.commit()
 
     with pytest.raises(HTTPException) as exc:
-        UserService.confirm_password_change(session, verified_user.password_change_token)
+        UserService.confirm_password_change(session, raw_token)
     assert exc.value.status_code == 400
 
 
 def test_confirm_password_change_null_pending_hash(session, verified_user):
     """Raises 400 when token is valid but pending_password_hash is None."""
-    _setup_pending_change(session, verified_user)
-    token = verified_user.password_change_token
+    raw_token = _setup_pending_change(session, verified_user)
     verified_user.pending_password_hash = None
     session.commit()
 
     with pytest.raises(HTTPException) as exc:
-        UserService.confirm_password_change(session, token)
+        UserService.confirm_password_change(session, raw_token)
     assert exc.value.status_code == 400

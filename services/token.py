@@ -1,5 +1,5 @@
 import secrets
-import hashlib
+from utils.hashing import hash_token
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -96,7 +96,7 @@ class TokenService:
         refresh_token, jti, expires_at = TokenService.create_refresh_token(email, user_id, role)
         
         # Hash the JTI and store in database
-        token_hash = hashlib.sha256(jti.encode()).hexdigest()
+        token_hash = hash_token(jti)
         
         db_refresh_token = RefreshToken(
             user_id=user_id,
@@ -160,7 +160,7 @@ class TokenService:
                 )
             
             # Hash JTI and check database
-            token_hash = hashlib.sha256(jti.encode()).hexdigest()
+            token_hash = hash_token(jti)
             db_token = db.query(RefreshToken).filter(
                 RefreshToken.token_hash == token_hash,
                 RefreshToken.revoked == False  # noqa: E712
@@ -218,7 +218,7 @@ class TokenService:
             jti = payload.get("jti")
             
             if jti:
-                token_hash = hashlib.sha256(jti.encode()).hexdigest()
+                token_hash = hash_token(jti)
                 
                 db_token = db.query(RefreshToken).filter(
                     RefreshToken.token_hash == token_hash

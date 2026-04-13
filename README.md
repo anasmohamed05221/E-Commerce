@@ -1,319 +1,299 @@
 <div align="center">
 
-# E-Commerce Backend APP
+# E-Commerce Backend
 
-**Production-grade e-commerce REST API built from scratch with FastAPI**
+**A production-grade REST API for an e-commerce platform — engineered for production, not tutorials.**
 
-![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.121-009688?logo=fastapi&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-DC382D?logo=redis&logoColor=white)
-![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?logo=sqlalchemy&logoColor=white)
-![CI](https://github.com/anasmohamed05221/E-Commerce/actions/workflows/ci.yml/badge.svg)
+[![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.121-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)](https://postgresql.org)
+[![Redis](https://img.shields.io/badge/Redis-DC382D?logo=redis&logoColor=white)](https://redis.io)
+[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?logo=sqlalchemy&logoColor=white)](https://sqlalchemy.org)
+[![CI](https://github.com/anasmohamed05221/E-Commerce/actions/workflows/ci.yml/badge.svg)](https://github.com/anasmohamed05221/E-Commerce/actions)
 
 </div>
 
 ---
 
-## What This Is
+Every model, service, route, migration, and test was written intentionally. The goal was not to build a tutorial app — it was to solve the real problems that production e-commerce backends face: race conditions, atomic transactions, token security, role enforcement, inventory integrity, cache invalidation, and a test suite that actually catches bugs.
 
-A hands-on built backend for an e-commerce platform — **no scaffolding, no boilerplate generators**. Every model, service, route, migration, and test is written intentionally to learn and demonstrate real backend engineering.
+---
 
-> **Active Development** — Core MVP is complete (auth, products, cart, orders, admin). Docker + deployment are next.
+## Engineering Highlights
+
+These are the decisions that matter — and why they were made:
+
+**Checkout is atomic or it doesn't happen.**
+Stock decrement, order creation, cart clear, and inventory log all commit in a single transaction. If any step fails, everything rolls back. No partial orders, no phantom stock.
+
+**Race conditions are prevented at the database level.**
+Checkout and order cancellation use `SELECT FOR UPDATE` (pessimistic locking) to acquire a row-level lock before reading stock. Two concurrent checkouts for the same product cannot both succeed on 1 unit of stock.
+
+**Tokens are never stored in plaintext.**
+Refresh tokens, password reset tokens, and password change tokens are all hashed with SHA-256 before being written to the database. The raw token travels over the wire once — only its hash lives in the DB. Passwords use bcrypt.
+
+**Token rotation with reuse detection.**
+On every refresh, the old token is revoked and a new pair is issued. Presenting a revoked token is treated as a security event.
+
+**Order status follows a strict FSM.**
+`PENDING → CONFIRMED → SHIPPED → COMPLETED`. Skipping states or moving backwards raises a 409. Cancellation is a separate path with different rules for customers vs. admins.
+
+**Price snapshots at purchase time.**
+`order_items.price_at_time` captures the product price at checkout. Changing a product price never retroactively affects existing orders.
+
+**Every stock change is audited.**
+`inventory_changes` logs every increment and decrement with a reason (`SALE`, `CANCELLATION`, `RESTOCK`, `ADJUSTMENT`, `RETURN`). Stock is never mutated silently.
+
+**Read-heavy data is cached in Redis.**
+Category listings are cached in Redis with a 1-hour TTL (cache-aside pattern). Every write — create, update, delete — explicitly invalidates the cache key. Stale data is never served after a mutation.
+
+**Paginated responses on every list endpoint.**
+Products, orders, and admin views all return `{ items, total, limit, offset }`. Callers can page through large datasets without pulling unbounded result sets. Product browsing also supports filters: `category_id`, `min_price`, `max_price`.
+
+**Rate limiting is multi-worker safe.**
+SlowAPI is backed by Redis, not in-memory counters. Rate limits are shared across all Gunicorn workers — a user can't bypass limits by hitting different processes.
+
+**Health check verifies dependencies, not just process uptime.**
+`GET /health` pings PostgreSQL and Redis and returns 503 if either is unreachable — not just 200 because the process is alive.
 
 ---
 
 ## Architecture
 
 ```
-Request → Middleware (logging, rate limit, request ID)
-       → Router (validation, HTTP contract)
-       → Service (business logic)
-       → Model (SQLAlchemy ORM → PostgreSQL)
-       → Response
+Request
+  └── Middleware  (structured logging · request ID tracing · rate limiting · CORS)
+        └── Router     (HTTP contract · status codes · dependency injection)
+              └── Schema     (Pydantic validation · request parsing · response shaping)
+                    └── Service    (business logic · authorization · DB transactions)
+                          └── Model      (SQLAlchemy ORM → PostgreSQL)
 ```
 
-**3-layer separation** — routers never touch the DB directly, services own the logic, models own the data.
-
-| Pattern | Where |
-|---|---|
-| Dependency Injection | DB sessions, authenticated user context, role guards |
-| Token Rotation | Refresh tokens revoked on reuse |
-| Pessimistic Locking | `SELECT FOR UPDATE` on products during checkout and order cancellation |
-| Atomic Transactions | Checkout: stock decrement + order creation + inventory log in one transaction |
-| Cache-Aside | Redis → DB fallback for categories (1hr TTL) |
-| Soft Deletes | Users deactivated, not destroyed |
-| Historical Pricing | `price_at_time` on order items (price snapshots at purchase) |
-| Inventory Audit Log | Every stock change recorded with reason |
+Hard rules enforced throughout:
+- **Routers** never touch the database directly
+- **Services** own all business logic and authorization checks — ownership is verified here, not in the router
+- **Schemas** validate all input at the boundary — password strength, phone normalization (E.164 via libphonenumber), email format
+- **Redis** is accessed only from services, never from routers
 
 ---
 
 ## Auth System
 
-Full authentication pipeline — not a tutorial copy-paste.
+Not a tutorial JWT setup. Every edge case is handled.
 
-| Feature | Detail |
+| Capability | Detail |
 |---|---|
-| Registration | Email + password with validation |
-| Email Verification | 6-digit code, 10-minute expiry |
-| Login | JWT access token (15 min) + refresh token (7 days) |
-| Token Rotation | Old refresh token revoked on each refresh |
-| Password Change | Confirmation email with approve/deny links |
-| Password Reset | Forgot-password flow with time-limited token |
-| Logout | Single device or all devices (revoke all tokens) |
-| Account Deactivation | Soft delete + full token revocation |
-| RBAC | `CUSTOMER` and `ADMIN` roles enforced via dependency injection |
-| Rate Limiting | Per-endpoint limits (login: 5/min, register: 3/min, etc.) |
-
-Tokens are **hashed in the database** (SHA-256 of JTI). Passwords use **bcrypt**.
-
----
-
-## API Endpoints
-
-### Auth `/auth`
-| Method | Endpoint | Rate Limit | Description |
-|---|---|---|---|
-| `POST` | `/auth/` | 3/min | Register |
-| `POST` | `/auth/token` | 5/min | Login — returns access + refresh tokens |
-| `POST` | `/auth/verify` | 3/min | Verify email with 6-digit code |
-| `POST` | `/auth/refresh` | 10/min | Rotate refresh token |
-| `POST` | `/auth/logout` | 10/min | Revoke refresh token |
-| `POST` | `/auth/forgot-password` | 3/min | Request password reset email |
-| `POST` | `/auth/reset-password` | 5/min | Reset password; revokes all sessions |
-
-### Users `/users` (authenticated)
-| Method | Endpoint | Rate Limit | Description |
-|---|---|---|---|
-| `GET` | `/users/me` | 30/min | Current user profile |
-| `PATCH` | `/users/me` | 10/min | Update profile (name, phone number) |
-| `PUT` | `/users/me/password` | 2/min | Request password change via email confirmation |
-| `POST` | `/users/confirm-password-change` | — | Confirm password change via token in request body |
-| `POST` | `/users/deny-password-change` | — | Deny password change; revoke all sessions |
-| `DELETE` | `/users/deactivate` | 3/min | Deactivate account |
-
-### Products `/products` (public)
-| Method | Endpoint | Rate Limit | Description |
-|---|---|---|---|
-| `GET` | `/products/` | 60/min | Paginated list; filterable by category, min/max price |
-| `GET` | `/products/{id}` | 60/min | Product detail with category |
-
-### Categories `/categories` (public)
-| Method | Endpoint | Rate Limit | Description |
-|---|---|---|---|
-| `GET` | `/categories/` | 60/min | List all (Redis-cached, 1hr TTL) |
-
-### Cart `/cart` (customers only)
-| Method | Endpoint | Rate Limit | Description |
-|---|---|---|---|
-| `GET` | `/cart/` | 60/min | View cart with total price |
-| `POST` | `/cart/` | 10/min | Add item (or increment if already in cart) |
-| `PATCH` | `/cart/{product_id}` | 10/min | Update item quantity |
-| `DELETE` | `/cart/` | 5/min | Clear all items from cart |
-| `DELETE` | `/cart/{product_id}` | 10/min | Remove single item |
-
-### Addresses `/addresses` (customers only)
-| Method | Endpoint | Rate Limit | Description |
-|---|---|---|---|
-| `POST` | `/addresses/` | — | Add address; first address auto-set as default |
-| `GET` | `/addresses/` | — | List all addresses |
-| `GET` | `/addresses/{id}` | — | Get single address |
-| `PATCH` | `/addresses/{id}` | — | Partial update address |
-| `DELETE` | `/addresses/{id}` | — | Delete address |
-| `POST` | `/addresses/{id}/set-default` | — | Set address as default |
-
-### Orders `/orders` (customers only)
-| Method | Endpoint | Rate Limit | Description |
-|---|---|---|---|
-| `POST` | `/orders/` | 5/min | Checkout — requires address + payment method; decrements stock atomically |
-| `GET` | `/orders/` | 60/min | List orders (paginated, newest first) |
-| `GET` | `/orders/{id}` | 60/min | Order detail with all line items |
-| `POST` | `/orders/{id}/cancel` | 10/min | Cancel pending order; restores stock |
-
-### Admin Products `/admin/products` (admins only)
-| Method | Endpoint | Rate Limit | Description |
-|---|---|---|---|
-| `POST` | `/admin/products/` | 30/min | Create product |
-| `PATCH` | `/admin/products/{id}` | 30/min | Partial update product |
-| `DELETE` | `/admin/products/{id}` | 30/min | Delete product (blocked if order items exist) |
-
-### Admin Orders `/admin/orders` (admins only)
-| Method | Endpoint | Rate Limit | Description |
-|---|---|---|---|
-| `GET` | `/admin/orders/` | 60/min | List all orders (paginated, filterable by status) |
-| `PATCH` | `/admin/orders/{id}/status` | 30/min | Advance order status (PENDING→CONFIRMED→SHIPPED→COMPLETED) |
-| `POST` | `/admin/orders/{id}/cancel` | 30/min | Cancel PENDING or CONFIRMED order; restores stock |
-
-### Admin Users `/admin/users` (admins only)
-| Method | Endpoint | Rate Limit | Description |
-|---|---|---|---|
-| `GET` | `/admin/users/` | 60/min | List all users (paginated, filterable by role/is_active) |
-| `GET` | `/admin/users/{id}` | 60/min | Get single user detail |
-| `PATCH` | `/admin/users/{id}/deactivate` | 30/min | Deactivate user + revoke all sessions |
-| `PATCH` | `/admin/users/{id}/reactivate` | 30/min | Reactivate a deactivated user |
-| `PATCH` | `/admin/users/{id}/role` | 30/min | Promote or demote user role |
-
-### System
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/health` | Health check |
+| Registration | Email + password, validated via Pydantic + phonenumbers |
+| Email Verification | 6-digit code with 10-minute expiry |
+| Login | Short-lived access token (15 min) + long-lived refresh token (7 days) |
+| Token Rotation | Old refresh token revoked on every refresh — reuse is rejected |
+| Token Storage | All tokens hashed with SHA-256 before DB write — plaintext never persists |
+| Password Change | Two-step: pending hash stored, confirmation email sent, applied on confirm |
+| Password Reset | Time-limited token (15 min), hashed in DB, single-use |
+| Logout | Single device (revoke one token) or all devices (revoke all) |
+| Account Deactivation | Soft delete — account disabled, all sessions revoked |
+| RBAC | `CUSTOMER` and `ADMIN` roles enforced via FastAPI dependency injection |
 
 ---
 
 ## Data Model
 
-```
-users ──┬── refresh_tokens
-        ├── addresses ── orders ── order_items ── products ── inventory_changes
-        └── cart_items ──────────────────────────── products
-                                                       └── categories
+```mermaid
+erDiagram
+    users {
+        int id PK
+        string email UK
+        string role "CUSTOMER · ADMIN"
+        bool is_active
+        bool is_verified
+    }
+
+    refresh_tokens {
+        int id PK
+        int user_id FK
+        string token_hash UK "SHA-256, never plaintext"
+        bool revoked
+        timestamp expires_at
+    }
+
+    addresses {
+        int id PK
+        int user_id FK
+        bool is_default
+    }
+
+    categories {
+        int id PK
+        string name UK
+    }
+
+    products {
+        int id PK
+        int category_id FK
+        decimal price
+        int stock
+    }
+
+    cart_items {
+        int id PK
+        int user_id FK
+        int product_id FK
+        int quantity
+    }
+
+    orders {
+        int id PK
+        int user_id FK
+        int address_id FK
+        string status "FSM: PENDING → CONFIRMED → SHIPPED → COMPLETED"
+        decimal total_amount
+    }
+
+    order_items {
+        int id PK
+        int order_id FK
+        int product_id FK
+        int quantity
+        decimal price_at_time "snapshot at checkout"
+    }
+
+    inventory_changes {
+        int id PK
+        int product_id FK
+        int change_amount
+        string reason "SALE · CANCELLATION · RESTOCK · ADJUSTMENT · RETURN"
+    }
+
+    users ||--o{ refresh_tokens : "sessions"
+    users ||--o{ addresses : "ships to"
+    users ||--o{ cart_items : "has in cart"
+    users ||--o{ orders : "places"
+    addresses ||--o{ orders : "used in"
+    categories ||--o{ products : "contains"
+    products ||--o{ cart_items : "added to"
+    products ||--o{ order_items : "purchased as"
+    products ||--o{ inventory_changes : "tracked by"
+    orders ||--o{ order_items : "contains"
 ```
 
-**9 tables** — users, products, categories, orders, order_items, cart_items, refresh_tokens, inventory_changes, addresses — managed through **22 Alembic migrations**.
+**9 tables · 22 Alembic migrations**
 
 ---
 
-## Testing
+## Test Suite
+
+**412 tests** — unit, integration, API, and middleware layers — running against a real PostgreSQL database.
 
 ```
 tests/
-├── unit/           → hashing, tokens, verification, sanitization, order FSM
-├── integration/    → auth, user service, token rotation, products, categories,
-│                     cart, checkout, orders, addresses, admin product/order/user service
-├── api/
-│   ├── auth/       → register, login, logout, verify, refresh, reset
-│   ├── users/      → profile, profile editing, password change, deactivation
-│   ├── products/   → list, detail, filtering
-│   ├── categories/ → list
-│   ├── cart/       → add, update, remove, clear, view
-│   ├── orders/     → checkout, list, detail, cancel
-│   ├── addresses/  → create, list, get, update, delete, set-default (auth, ownership)
-│   ├── admin_products/ → create, update, delete (auth, RBAC, validation)
-│   ├── admin_orders/  → list, status update, cancel (auth, RBAC, FSM)
-│   ├── admin_users/   → list, get, deactivate, reactivate, role update (auth, RBAC, guards)
-│   └── checkout/   → stock validation, atomicity, address validation
-└── middleware/     → rate limiting, request ID
+├── unit/           → FSM correctness, hashing, token generation, validation
+├── integration/    → every service method tested directly against the DB
+│                     auth · users · tokens · products · categories · cart
+│                     checkout · orders · addresses · admin services
+├── api/            → full HTTP layer — status codes, response schemas,
+│                     auth enforcement, RBAC, ownership, edge cases
+└── middleware/     → rate limiting, request ID propagation
 ```
 
-- **412 tests** across 4 layers — real PostgreSQL, AsyncMock Redis, CI on every push
-- **Transactional isolation** — tables created once, each test wrapped in a savepoint and rolled back. No DDL per test.
-- **Parallel execution** — `pytest -n 8` via pytest-xdist with filelock-guarded DDL. One worker sets up the schema, all others reuse it.
-- **Pre-hashed passwords + direct JWT generation** — eliminates bcrypt cost from every test fixture and HTTP login call.
-- **Worker-scoped fixture emails** — unique email per xdist worker prevents unique-constraint deadlocks under full parallelism.
-- **Result: before optimization, 194 tests in ~70s; after optimization, 412 tests in ~30s**
+The setup is engineered, not just functional:
+
+- **Transactional isolation** — schema created once per session, each test runs in a savepoint that rolls back on completion. No DDL overhead per test.
+- **Parallel execution** — `pytest-xdist` with filelock-guarded DDL. One worker creates the schema; all others reuse it concurrently.
+- **No bcrypt in fixtures** — passwords pre-hashed once at module load. JWT tokens generated directly without HTTP round-trips. Bcrypt cost is not paid on every test.
+- **Worker-scoped emails** — fixture emails include the xdist worker ID, preventing unique-constraint collisions under parallel execution.
+
+> Before optimization: 194 tests in ~70s — After: 412 tests in ~13s
+
+---
+
+## API Reference
+
+Full contracts for every endpoint are documented in [`docs/API_Contracts/`](docs/API_Contracts/) as Markdown files — one file per domain, covering request/response schemas, status codes, auth requirements, and edge cases.
+
+Domains covered: `auth` · `users` · `addresses` · `products` · `categories` · `cart` · `orders` · `admin/products` · `admin/categories` · `admin/orders` · `admin/users`
 
 ---
 
 ## Tech Stack
 
-| Layer | Tech |
+| Layer | Technology |
 |---|---|
 | Framework | FastAPI + Uvicorn |
 | Database | PostgreSQL + SQLAlchemy 2.0 + Alembic |
-| Cache | Redis (async, cache-aside pattern) |
-| Auth | JWT (python-jose) + Bcrypt (passlib) |
-| Validation | Pydantic v2, email-validator, phonenumbers |
-| Rate Limiting | SlowAPI |
-| Email | SMTP with 3-retry exponential backoff (tenacity) |
-| Logging | Structured JSON logs, rotating file handlers, request ID tracing |
-| Testing | Pytest + pytest-asyncio + httpx + pytest-xdist |
-| CI/CD | GitHub Actions |
+| Cache | Redis — async, cache-aside pattern, write-through invalidation |
+| Auth | python-jose (JWT) + passlib (bcrypt) + SHA-256 token hashing |
+| Validation | Pydantic v2 + email-validator + phonenumbers (E.164) |
+| Rate Limiting | SlowAPI — Redis-backed, multi-worker safe |
+| Email | SMTP + tenacity (3-retry exponential backoff) |
+| Logging | Structured JSON · rotating file handlers · request ID tracing |
+| Testing | pytest + pytest-asyncio + httpx + pytest-xdist |
+| CI | GitHub Actions |
 | Linting | Ruff |
 
 ---
 
 ## Quick Start
 
-```bash
-# Prerequisites
-- Python 3.13
-- PostgreSQL (running locally or via Docker)
-- Redis (running locally or via Docker)
+> **Prerequisites:** PostgreSQL and Redis must be running locally (or update `.env` to point to remote instances).
 
-# Clone
+```bash
 git clone https://github.com/anasmohamed05221/E-Commerce.git
 cd E-Commerce
-
-# Environment
-cp .env.example .env
-# Fill in: DATABASE_URL, SECRET_KEY, MAIL_* credentials, REDIS_URL
-
-# Install
+cp .env.example .env        # fill in DATABASE_URL, SECRET_KEY, REDIS_URL, MAIL_*
 pip install -r requirements.txt
-
-# Migrate
 alembic upgrade head
-
-# Run
 uvicorn main:app --reload
-```
-
-**Key environment variables:**
-
-```env
-DATABASE_URL=postgresql://user:password@localhost/dbname
-SECRET_KEY=your_secret_key_here
-REDIS_URL=redis://localhost:6379/0
-CORS_ORIGINS=["http://localhost:3000"]
-MAIL_USERNAME=your_email@example.com
-MAIL_PASSWORD=your_email_password
-MAIL_SERVER=smtp.gmail.com
-MAIL_PORT=587
 ```
 
 ---
 
 ## Roadmap
 
-### Done
-- [x] User registration, email verification, JWT auth with token rotation
-- [x] Password change (with email confirmation) and reset flows
-- [x] Account deactivation with full token revocation
-- [x] Product catalog — paginated list with category/price filtering, detail view
-- [x] Categories with Redis caching
-- [x] Shopping cart — add, update, remove, view with real-time total
-- [x] Order checkout — atomic transaction, pessimistic locking, stock decrement
-- [x] Order management — list, detail, cancel with stock restore + inventory log
-- [x] Admin product management — create, update, delete (with referential integrity guard)
-- [x] Admin order management — list all, status transitions (FSM), cancel with stock restore
-- [x] Admin user management — list, view, deactivate, reactivate, role promotion/demotion
-- [x] RBAC — CUSTOMER and ADMIN roles enforced at dependency level
-- [x] Rate limiting, structured logging, request ID tracing
-- [x] Address management — create, list, get, update, delete, set-default with ownership enforcement
-- [x] COD payment method selectable at checkout
-- [x] SHIPPED status added to order lifecycle (PENDING→CONFIRMED→SHIPPED→COMPLETED)
-- [x] Profile editing — PATCH /users/me (name, phone number)
-- [x] Clear cart — DELETE /cart (idempotent bulk delete)
-- [x] 412 tests (unit, integration, API, middleware) passing with pytest-xdist
-- [x] GitHub Actions CI pipeline
+**Epic 1 — MVP** ✅ shipped
+- [x] Full auth pipeline with token rotation and two-step password change
+- [x] Product catalog with category filtering, price filters, and Redis caching
+- [x] Paginated responses on all list endpoints
+- [x] Cart, checkout (atomic + SELECT FOR UPDATE), order lifecycle
+- [x] Address management with ownership enforcement
+- [x] Admin: product CRUD, order status FSM, user management
+- [x] RBAC, rate limiting, structured logging, health checks
+- [x] 412 tests · GitHub Actions CI
 
-### Building Now
-- [ ] Docker + docker-compose setup
-- [ ] Deploy (Epic 1 close)
+**Async SQLAlchemy Migration** *(immediate next — before Epic 2)*
+- [ ] Migrate from sync to async SQLAlchemy (`create_async_engine`, `AsyncSession`, `select()` API)
+- [ ] Convert all service methods to async, all routes back to `async def`
+- [ ] Update Alembic env.py, all test fixtures and conftest to async equivalents
 
-### Epic 2 — Payments & Async
-- [ ] Stripe payment integration (checkout session + webhook)
-- [ ] Celery + Redis task queue
-- [ ] Order confirmation emails on payment
-- [ ] Inventory update on payment
-- [ ] Coupons / promo codes (fixed + percentage discounts)
+**Epic 2 — Payments & Background Jobs**
+- [ ] Stripe integration (checkout session + webhooks)
+- [ ] Celery + Redis task queue for async background jobs
+- [ ] Order confirmation email on payment
+- [ ] Coupons and promo codes (fixed + percentage discounts, expiry, min order value)
+- [ ] Coupon management (admin: create, disable, list)
 
-### Epic 3 — Engagement Features
-- [ ] Wishlist (add / remove / list)
-- [ ] Reviews & Ratings (purchased-only constraint, auto-update avg rating)
+**Epic 3 — Engagement & Fulfillment**
+- [ ] OAuth login (Google / Apple / Facebook)
+- [ ] Shipment & delivery simulation with order tracking
+- [ ] Wishlist (add / remove / move to cart)
+- [ ] Reviews and ratings (purchased-only constraint, auto-updated product avg)
+- [ ] Review moderation (admin: approve, hide, delete)
+- [ ] In-app notifications (order status changes)
 
-### Epic 4 — Search
-- [ ] Typesense integration
-- [ ] Product search with filters, typo tolerance, and ranking
+**Epic 4 — Search**
+- [ ] Typesense product search with filters, typo tolerance, and ranking
 
-### Epic 5 — DevOps Improvements
-- [ ] Monitoring and observability
-- [ ] Infrastructure improvements and scaling
+**Epic 5 — Platform**
+- [ ] Admin dashboard: revenue, orders, top products, new users (charts)
+- [ ] Sales reports by period and category
+- [ ] Hierarchical categories
+- [ ] Monitoring and observability improvements
 
 ---
 
 <div align="center">
 
-**Built by [Anas Mohamed](https://github.com/anasmohamed05221)** — learning backend engineering by building, not by watching.
+**Built by [Anas Mohamed](https://github.com/anasmohamed05221)**
+
+*Learning backend engineering by building, not by watching.*
 
 </div>

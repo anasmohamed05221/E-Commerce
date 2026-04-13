@@ -3,6 +3,9 @@ from sqlalchemy.orm import Session, joinedload
 from models.cart_items import CartItem
 from models.products import Product
 from decimal import Decimal
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class CartService:
@@ -43,6 +46,7 @@ class CartService:
         try:
             db.commit()
         except Exception:
+            logger.error("Add to cart commit failed", extra={"user_id": user_id, "product_id": product_id}, exc_info=True)
             db.rollback()
             raise
         cart_item = db.query(CartItem).options(joinedload(CartItem.product)).filter(CartItem.user_id==user_id, CartItem.product_id==product_id).first()
@@ -62,11 +66,25 @@ class CartService:
         try:
             db.commit()
         except Exception:
+            logger.error("Update cart item commit failed", extra={"user_id": user_id, "product_id": product_id}, exc_info=True)
             db.rollback()
             raise
         cart_item = db.query(CartItem).options(joinedload(CartItem.product)).filter(CartItem.user_id==user_id, CartItem.product_id==product_id).first()
         return cart_item
     
+
+    @staticmethod
+    def clear_cart(db: Session, user_id: int):
+        """Empty User's cart."""
+        db.query(CartItem).filter(CartItem.user_id == user_id).delete()
+
+        try:
+            db.commit()
+        except Exception:
+            logger.error("Clear cart commit failed", extra={"user_id": user_id}, exc_info=True)
+            db.rollback()
+            raise
+
 
     @staticmethod
     def remove_from_cart(db: Session, user_id: int, product_id: int):
@@ -80,5 +98,6 @@ class CartService:
         try:
             db.commit()
         except Exception:
+            logger.error("Remove from cart commit failed", extra={"user_id": user_id, "product_id": product_id}, exc_info=True)
             db.rollback()
             raise

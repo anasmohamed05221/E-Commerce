@@ -282,11 +282,14 @@ uvicorn main:app --reload
 **Epic 4 — Search**
 - [ ] Typesense product search with filters, typo tolerance, and ranking
 
-**Epic 5 — Platform**
+**Epic 5 — DevOps & Platform Improvements**
+- [ ] Monitoring, infra improvements, and scaling
 - [ ] Admin dashboard: revenue, orders, top products, new users (charts)
-- [ ] Sales reports by period and category
+- [ ] Reports: sales by period, revenue by category, return rates
 - [ ] Hierarchical categories
-- [ ] Monitoring and observability improvements
+- [ ] SEO slugs for product/category pages
+- [ ] CSRF protection
+- [ ] HTTPS enforced via nginx/certbot
 
 ---
 

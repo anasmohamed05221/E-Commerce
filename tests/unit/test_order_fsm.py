@@ -35,10 +35,17 @@ def test_pending_to_completed_is_not_allowed():
 
 # --- Allowed transitions from CONFIRMED ---
 
-def test_confirmed_to_completed_is_allowed():
+def test_confirmed_to_shipped_is_allowed():
+    assert OrderService._is_allowed_status_transition(
+        OrderStatus.CONFIRMED, OrderStatus.SHIPPED
+    ) is True
+
+
+def test_confirmed_to_completed_is_not_allowed():
+    """Must go through SHIPPED before COMPLETED."""
     assert OrderService._is_allowed_status_transition(
         OrderStatus.CONFIRMED, OrderStatus.COMPLETED
-    ) is True
+    ) is False
 
 
 def test_confirmed_to_cancelled_is_not_in_fsm():
@@ -124,4 +131,39 @@ def test_completed_to_completed_is_not_allowed():
 def test_cancelled_to_cancelled_is_not_allowed():
     assert OrderService._is_allowed_status_transition(
         OrderStatus.CANCELLED, OrderStatus.CANCELLED
+    ) is False
+
+
+# --- Allowed transitions from SHIPPED ---
+
+def test_shipped_to_completed_is_allowed():
+    assert OrderService._is_allowed_status_transition(
+        OrderStatus.SHIPPED, OrderStatus.COMPLETED
+    ) is True
+
+
+# --- Disallowed transitions from SHIPPED ---
+
+def test_shipped_to_pending_is_not_allowed():
+    assert OrderService._is_allowed_status_transition(
+        OrderStatus.SHIPPED, OrderStatus.PENDING
+    ) is False
+
+
+def test_shipped_to_confirmed_is_not_allowed():
+    assert OrderService._is_allowed_status_transition(
+        OrderStatus.SHIPPED, OrderStatus.CONFIRMED
+    ) is False
+
+
+def test_shipped_to_cancelled_is_not_in_fsm():
+    """Cancellation is a separate operation, not an FSM transition."""
+    assert OrderService._is_allowed_status_transition(
+        OrderStatus.SHIPPED, OrderStatus.CANCELLED
+    ) is False
+
+
+def test_shipped_to_shipped_is_not_allowed():
+    assert OrderService._is_allowed_status_transition(
+        OrderStatus.SHIPPED, OrderStatus.SHIPPED
     ) is False

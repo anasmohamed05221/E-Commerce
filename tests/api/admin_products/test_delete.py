@@ -1,6 +1,7 @@
 import pytest
 from services.cart import CartService
 from services.checkout import CheckoutService
+from models.enums import PaymentMethod
 
 
 @pytest.mark.asyncio
@@ -28,11 +29,11 @@ async def test_delete_product_not_found(client, admin_token):
 
 
 @pytest.mark.asyncio
-async def test_delete_product_blocked_by_order(client, admin_token, verified_user, session, product_factory):
+async def test_delete_product_blocked_by_order(client, admin_token, verified_user, session, product_factory, test_address):
     """Returns 409 when the product is referenced by an order item."""
     product = product_factory()
     CartService.add_to_cart(session, verified_user.id, product.id, 1)
-    CheckoutService.checkout(session, verified_user.id)
+    CheckoutService.checkout(session, verified_user.id, test_address.id, PaymentMethod.COD)
 
     response = await client.delete(
         f"/admin/products/{product.id}",

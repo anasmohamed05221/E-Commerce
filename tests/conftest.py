@@ -11,7 +11,8 @@ from services.token import TokenService
 from models.users import User
 from models.categories import Category
 from models.products import Product
-from models.enums import UserRole
+from models.addresses import Address
+from models.enums import UserRole, PaymentMethod
 from services.cart import CartService
 from services.checkout import CheckoutService
 from main import app
@@ -231,12 +232,29 @@ def seed_products(session, test_category):
 
 
 @pytest.fixture
-def order_factory(session, verified_user, product_factory):
+def test_address(session, verified_user):
+    """Create a default address for verified_user."""
+    address = Address(
+        user_id=verified_user.id,
+        street="123 Test St",
+        city="Cairo",
+        country="Egypt",
+        postal_code="11511",
+        is_default=True,
+    )
+    session.add(address)
+    session.commit()
+    session.refresh(address)
+    return address
+
+
+@pytest.fixture
+def order_factory(session, verified_user, product_factory, test_address):
     def _create(products_and_quantities=None):
         if products_and_quantities is None:
             products_and_quantities = [(product_factory(), 2)]
         for product, quantity in products_and_quantities:
             CartService.add_to_cart(session, verified_user.id, product.id, quantity)
-        
-        return CheckoutService.checkout(session, verified_user.id)
+
+        return CheckoutService.checkout(session, verified_user.id, test_address.id, PaymentMethod.COD)
     return _create

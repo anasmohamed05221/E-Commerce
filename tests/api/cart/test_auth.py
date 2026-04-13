@@ -28,3 +28,11 @@ async def test_delete_cart_requires_auth(client):
     response = await client.delete("/cart/1")
 
     assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_clear_cart_requires_auth(client):
+    """DELETE /cart requires authentication."""
+    response = await client.delete("/cart/")
+
+    assert response.status_code == 401

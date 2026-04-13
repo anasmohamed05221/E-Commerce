@@ -158,6 +158,7 @@ Example:
   "id": 1,
   "total_amount": 1050.00,
   "status": "pending",
+  "payment_method": "cod",
   "items": [
     {
       "id": 1,

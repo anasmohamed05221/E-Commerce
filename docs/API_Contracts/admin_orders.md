@@ -18,7 +18,7 @@ Admin-only endpoints for order management. All endpoints require a valid access 
 |---|---|---|---|
 | `limit` | integer | 10 | min 1, max 50 |
 | `offset` | integer | 0 | min 0 |
-| `status` | string | — | Filter by order status: `pending`, `confirmed`, `completed`, `cancelled` |
+| `status` | string | — | Filter by order status: `pending`, `confirmed`, `shipped`, `completed`, `cancelled` |
 
 ### Response (200 OK)
 
@@ -68,7 +68,7 @@ Admin-only endpoints for order management. All endpoints require a valid access 
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `status` | string | yes | Target status: `confirmed` or `completed` |
+| `status` | string | yes | Target status: `confirmed`, `shipped`, or `completed` |
 
 Example:
 
@@ -112,7 +112,8 @@ Returns the full order detail with items and nested products:
 | From | To |
 |---|---|
 | `pending` | `confirmed` |
-| `confirmed` | `completed` |
+| `confirmed` | `shipped` |
+| `shipped` | `completed` |
 
 Cancellation is handled by the separate cancel endpoint — not by this endpoint.
 

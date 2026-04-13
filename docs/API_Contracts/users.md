@@ -42,7 +42,7 @@ Rate limit: 30/minute
 
 ## Request
 
-**PUT** `/users/me`
+**PATCH** `/users/me`
 
 Rate limit: 10/minute
 
@@ -59,7 +59,8 @@ Request body (all fields optional, but at least one must be provided):
 ## Validation Rules
 
 - At least one field must be present (empty body returns `422`).
-- `phone_number`: optional string, no format enforcement at the API layer.
+- `first_name` / `last_name`: 1–50 characters.
+- `phone_number`: validated via the `phonenumbers` library — must be a valid international phone number.
 
 ---
 

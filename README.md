@@ -86,9 +86,10 @@ Tokens are **hashed in the database** (SHA-256 of JTI). Passwords use **bcrypt**
 | Method | Endpoint | Rate Limit | Description |
 |---|---|---|---|
 | `GET` | `/users/me` | 30/min | Current user profile |
+| `PATCH` | `/users/me` | 10/min | Update profile (name, phone number) |
 | `PUT` | `/users/me/password` | 2/min | Request password change via email confirmation |
-| `GET` | `/users/confirm-password-change` | — | Confirm password change via email link |
-| `GET` | `/users/deny-password-change` | — | Deny password change; revoke all sessions |
+| `POST` | `/users/confirm-password-change` | — | Confirm password change via token in request body |
+| `POST` | `/users/deny-password-change` | — | Deny password change; revoke all sessions |
 | `DELETE` | `/users/deactivate` | 3/min | Deactivate account |
 
 ### Products `/products` (public)
@@ -108,12 +109,23 @@ Tokens are **hashed in the database** (SHA-256 of JTI). Passwords use **bcrypt**
 | `GET` | `/cart/` | 60/min | View cart with total price |
 | `POST` | `/cart/` | 10/min | Add item (or increment if already in cart) |
 | `PATCH` | `/cart/{product_id}` | 10/min | Update item quantity |
-| `DELETE` | `/cart/{product_id}` | 10/min | Remove item |
+| `DELETE` | `/cart/` | 5/min | Clear all items from cart |
+| `DELETE` | `/cart/{product_id}` | 10/min | Remove single item |
+
+### Addresses `/addresses` (customers only)
+| Method | Endpoint | Rate Limit | Description |
+|---|---|---|---|
+| `POST` | `/addresses/` | — | Add address; first address auto-set as default |
+| `GET` | `/addresses/` | — | List all addresses |
+| `GET` | `/addresses/{id}` | — | Get single address |
+| `PATCH` | `/addresses/{id}` | — | Partial update address |
+| `DELETE` | `/addresses/{id}` | — | Delete address |
+| `POST` | `/addresses/{id}/set-default` | — | Set address as default |
 
 ### Orders `/orders` (customers only)
 | Method | Endpoint | Rate Limit | Description |
 |---|---|---|---|
-| `POST` | `/orders/` | 5/min | Checkout — create order from cart; decrements stock |
+| `POST` | `/orders/` | 5/min | Checkout — requires address + payment method; decrements stock atomically |
 | `GET` | `/orders/` | 60/min | List orders (paginated, newest first) |
 | `GET` | `/orders/{id}` | 60/min | Order detail with all line items |
 | `POST` | `/orders/{id}/cancel` | 10/min | Cancel pending order; restores stock |
@@ -129,7 +141,7 @@ Tokens are **hashed in the database** (SHA-256 of JTI). Passwords use **bcrypt**
 | Method | Endpoint | Rate Limit | Description |
 |---|---|---|---|
 | `GET` | `/admin/orders/` | 60/min | List all orders (paginated, filterable by status) |
-| `PATCH` | `/admin/orders/{id}/status` | 30/min | Advance order status (PENDING→CONFIRMED→COMPLETED) |
+| `PATCH` | `/admin/orders/{id}/status` | 30/min | Advance order status (PENDING→CONFIRMED→SHIPPED→COMPLETED) |
 | `POST` | `/admin/orders/{id}/cancel` | 30/min | Cancel PENDING or CONFIRMED order; restores stock |
 
 ### Admin Users `/admin/users` (admins only)
@@ -152,12 +164,12 @@ Tokens are **hashed in the database** (SHA-256 of JTI). Passwords use **bcrypt**
 
 ```
 users ──┬── refresh_tokens
-        ├── orders ── order_items ── products ── inventory_changes
-        └── cart_items ──────────────── products
-                                          └── categories
+        ├── addresses ── orders ── order_items ── products ── inventory_changes
+        └── cart_items ──────────────────────────── products
+                                                       └── categories
 ```
 
-**8 tables** — users, products, categories, orders, order_items, cart_items, refresh_tokens, inventory_changes — managed through **17 Alembic migrations**.
+**9 tables** — users, products, categories, orders, order_items, cart_items, refresh_tokens, inventory_changes, addresses — managed through **22 Alembic migrations**.
 
 ---
 
@@ -167,27 +179,28 @@ users ──┬── refresh_tokens
 tests/
 ├── unit/           → hashing, tokens, verification, sanitization, order FSM
 ├── integration/    → auth, user service, token rotation, products, categories,
-│                     cart, checkout, orders, admin product/order/user service
+│                     cart, checkout, orders, addresses, admin product/order/user service
 ├── api/
 │   ├── auth/       → register, login, logout, verify, refresh, reset
-│   ├── users/      → profile, password change, deactivation
+│   ├── users/      → profile, profile editing, password change, deactivation
 │   ├── products/   → list, detail, filtering
 │   ├── categories/ → list
-│   ├── cart/       → add, update, remove, view
+│   ├── cart/       → add, update, remove, clear, view
 │   ├── orders/     → checkout, list, detail, cancel
+│   ├── addresses/  → create, list, get, update, delete, set-default (auth, ownership)
 │   ├── admin_products/ → create, update, delete (auth, RBAC, validation)
 │   ├── admin_orders/  → list, status update, cancel (auth, RBAC, FSM)
 │   ├── admin_users/   → list, get, deactivate, reactivate, role update (auth, RBAC, guards)
-│   └── checkout/   → stock validation, atomicity
+│   └── checkout/   → stock validation, atomicity, address validation
 └── middleware/     → rate limiting, request ID
 ```
 
-- **304 tests** across 4 layers — real PostgreSQL, AsyncMock Redis, CI on every push
+- **412 tests** across 4 layers — real PostgreSQL, AsyncMock Redis, CI on every push
 - **Transactional isolation** — tables created once, each test wrapped in a savepoint and rolled back. No DDL per test.
 - **Parallel execution** — `pytest -n 8` via pytest-xdist with filelock-guarded DDL. One worker sets up the schema, all others reuse it.
 - **Pre-hashed passwords + direct JWT generation** — eliminates bcrypt cost from every test fixture and HTTP login call.
 - **Worker-scoped fixture emails** — unique email per xdist worker prevents unique-constraint deadlocks under full parallelism.
-- **Result: before optimization, 194 tests in ~70s; after optimization, 304 tests in ~10s**
+- **Result: before optimization, 194 tests in ~70s; after optimization, 412 tests in ~30s**
 
 ---
 
@@ -266,7 +279,12 @@ MAIL_PORT=587
 - [x] Admin user management — list, view, deactivate, reactivate, role promotion/demotion
 - [x] RBAC — CUSTOMER and ADMIN roles enforced at dependency level
 - [x] Rate limiting, structured logging, request ID tracing
-- [x] 304 tests (unit, integration, API, middleware) — 304 passing in ~10s with pytest-xdist
+- [x] Address management — create, list, get, update, delete, set-default with ownership enforcement
+- [x] COD payment method selectable at checkout
+- [x] SHIPPED status added to order lifecycle (PENDING→CONFIRMED→SHIPPED→COMPLETED)
+- [x] Profile editing — PATCH /users/me (name, phone number)
+- [x] Clear cart — DELETE /cart (idempotent bulk delete)
+- [x] 412 tests (unit, integration, API, middleware) passing with pytest-xdist
 - [x] GitHub Actions CI pipeline
 
 ### Building Now
@@ -278,7 +296,6 @@ MAIL_PORT=587
 - [ ] Celery + Redis task queue
 - [ ] Order confirmation emails on payment
 - [ ] Inventory update on payment
-- [ ] Shipping address book (pick at checkout)
 - [ ] Coupons / promo codes (fixed + percentage discounts)
 
 ### Epic 3 — Engagement Features

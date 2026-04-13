@@ -1,4 +1,4 @@
-from utils.hashing import verify_password, get_password_hash
+from utils.hashing import verify_password, get_password_hash, hash_token
 from models.users import User
 from schemas.auth import CreateUserRequest
 from sqlalchemy.orm import Session
@@ -172,7 +172,8 @@ class AuthService:
             return
 
         reset_token = secrets.token_urlsafe(32)
-        model.password_reset_token = reset_token
+        reset_token_hash = hash_token(reset_token)
+        model.password_reset_token = reset_token_hash
         model.password_reset_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
 
         try:
@@ -195,7 +196,7 @@ class AuthService:
             HTTPException 400: If token is invalid or expired.
         """
         model = db.query(User).filter(
-            User.password_reset_token == token,
+            User.password_reset_token == hash_token(token),
             User.password_reset_expires_at > datetime.now(timezone.utc)
         ).first()
 

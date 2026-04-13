@@ -1,7 +1,16 @@
 from models.users import User
-from utils.hashing import get_password_hash, verify_password
+from utils.hashing import get_password_hash, verify_password, hash_token
 from datetime import datetime, timedelta, UTC, timezone
 import secrets
+
+
+def _setup_reset_token(session, user) -> str:
+    """Put user into password reset state and return the RAW token."""
+    raw_token = secrets.token_urlsafe(32)
+    user.password_reset_token = hash_token(raw_token)
+    user.password_reset_expires_at = datetime.now(UTC) + timedelta(minutes=15)
+    session.commit()
+    return raw_token
 
 
 async def test_forgot_password_success(client, verified_user, session):
@@ -33,16 +42,8 @@ async def test_forgot_password_nonexistent_user(client):
 
 async def test_reset_password_success(client, verified_user, session):
     """Test successful password reset with valid token."""
-    # Request password reset
-    response = await client.post("/auth/forgot-password", json={
-        "email": verified_user.email
-    })
-    assert response.status_code == 200
-    
-    # Get reset token from database
-    session.refresh(verified_user)
-    reset_token = verified_user.password_reset_token
-    
+    reset_token = _setup_reset_token(session, verified_user)
+
     # Reset password
     new_password = "NewSecurePass123!"
     response = await client.post("/auth/reset-password", json={
@@ -82,9 +83,8 @@ async def test_reset_password_invalid_token(client):
 
 async def test_reset_password_expired_token(client, verified_user, session):
     """Test password reset with expired token fails."""
-    # Manually create expired reset token
     reset_token = secrets.token_urlsafe(32)
-    verified_user.password_reset_token = reset_token
+    verified_user.password_reset_token = hash_token(reset_token)
     verified_user.password_reset_expires_at = datetime.now(UTC) - timedelta(seconds=1)
     session.commit()
     
@@ -100,14 +100,8 @@ async def test_reset_password_expired_token(client, verified_user, session):
 
 async def test_reset_password_weak_password(client, verified_user, session):
     """Test password reset with weak password fails validation."""
-    # Request password reset
-    await client.post("/auth/forgot-password", json={
-        "email": verified_user.email
-    })
-    
-    session.refresh(verified_user)
-    reset_token = verified_user.password_reset_token
-    
+    reset_token = _setup_reset_token(session, verified_user)
+
     # Try to reset with weak password
     response = await client.post("/auth/reset-password", json={
         "token": reset_token,
@@ -126,15 +120,9 @@ async def test_reset_password_revokes_all_tokens(client, verified_user, session)
         "password": "TestPassword123!"
     })
     old_refresh_token = response.json()["refresh_token"]
-    
-    # Request password reset
-    await client.post("/auth/forgot-password", json={
-        "email": verified_user.email
-    })
-    
-    session.refresh(verified_user)
-    reset_token = verified_user.password_reset_token
-    
+
+    reset_token = _setup_reset_token(session, verified_user)
+
     # Reset password
     response = await client.post("/auth/reset-password", json={
         "token": reset_token,
@@ -153,14 +141,8 @@ async def test_reset_password_revokes_all_tokens(client, verified_user, session)
 
 async def test_reset_password_token_single_use(client, verified_user, session):
     """Test that reset token can only be used once."""
-    # Request password reset
-    await client.post("/auth/forgot-password", json={
-        "email": verified_user.email
-    })
-    
-    session.refresh(verified_user)
-    reset_token = verified_user.password_reset_token
-    
+    reset_token = _setup_reset_token(session, verified_user)
+
     # Use token once
     response = await client.post("/auth/reset-password", json={
         "token": reset_token,

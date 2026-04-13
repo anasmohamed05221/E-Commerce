@@ -5,7 +5,8 @@ from services.orders import OrderService
 from services.cart import CartService
 from services.checkout import CheckoutService
 from models.users import User
-from models.enums import OrderStatus
+from models.addresses import Address
+from models.enums import OrderStatus, PaymentMethod
 from utils.hashing import get_password_hash
 
 
@@ -32,15 +33,23 @@ def test_get_all_orders_returns_all_users_orders(session, verified_user, product
     session.commit()
     session.refresh(other_user)
 
+    # Address for verified_user
+    addr1 = Address(user_id=verified_user.id, street="1 St", city="Cairo", country="Egypt", postal_code="11511", is_default=True)
+    session.add(addr1)
+    # Address for other_user
+    addr2 = Address(user_id=other_user.id, street="2 St", city="Cairo", country="Egypt", postal_code="11511", is_default=True)
+    session.add(addr2)
+    session.commit()
+
     # Order for verified_user
     p1 = product_factory(name="Laptop", stock=10)
     CartService.add_to_cart(session, verified_user.id, p1.id, 1)
-    CheckoutService.checkout(session, verified_user.id)
+    CheckoutService.checkout(session, verified_user.id, addr1.id, PaymentMethod.COD)
 
     # Order for other_user
     p2 = product_factory(name="Mouse", stock=10)
     CartService.add_to_cart(session, other_user.id, p2.id, 1)
-    CheckoutService.checkout(session, other_user.id)
+    CheckoutService.checkout(session, other_user.id, addr2.id, PaymentMethod.COD)
 
     orders, total = OrderService.get_all_orders(session, limit=10, offset=0)
 

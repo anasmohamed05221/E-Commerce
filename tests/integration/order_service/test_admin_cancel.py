@@ -60,6 +60,7 @@ def test_admin_cancel_completed_order(session, verified_user, order_factory):
     """Raises 409 when trying to cancel a COMPLETED order."""
     order = order_factory()
     OrderService.update_order_status(session, OrderStatus.CONFIRMED, order.id)
+    OrderService.update_order_status(session, OrderStatus.SHIPPED, order.id)
     OrderService.update_order_status(session, OrderStatus.COMPLETED, order.id)
 
     with pytest.raises(HTTPException) as exc:

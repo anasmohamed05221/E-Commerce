@@ -4,14 +4,15 @@ from services.checkout import CheckoutService
 from services.cart import CartService
 from models.cart_items import CartItem
 from models.inventory_changes import InventoryChange
+from models.enums import PaymentMethod
 
 
-def test_checkout_success(session, verified_user, product_factory):
+def test_checkout_success(session, verified_user, product_factory, test_address):
     """Full checkout flow creates order, decrements stock, logs inventory change, and clears cart."""
     product = product_factory(name="Laptop", price=1000.00, stock=10)
     CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=2)
 
-    order = CheckoutService.checkout(db=session, user_id=verified_user.id)
+    order = CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
     # Order created with correct total
     assert order is not None
     assert order.user_id == verified_user.id
@@ -37,27 +38,27 @@ def test_checkout_success(session, verified_user, product_factory):
     assert len(cart_items) == 0
 
 
-def test_checkout_cart_empty(session, verified_user):
+def test_checkout_cart_empty(session, verified_user, test_address):
     """Checkout with no cart items raises 400."""
     with pytest.raises(HTTPException) as exc:
-        order = CheckoutService.checkout(db=session, user_id=verified_user.id)
+        order = CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
     assert exc.value.status_code == 400
     assert exc.value.detail == "Can't checkout while cart is empty"
 
 
-def test_checkout_stock_insufficient(session, verified_user, product_factory):
+def test_checkout_stock_insufficient(session, verified_user, product_factory, test_address):
     """Checkout raises 409 when a cart item quantity exceeds current stock."""
     product = product_factory(name="Laptop", price=1000.00, stock=10)
     CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=2)
     product.stock = 1
     session.commit()
     with pytest.raises(HTTPException) as exc:
-        order = CheckoutService.checkout(db=session, user_id=verified_user.id)
+        order = CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
     assert exc.value.status_code == 409
     assert exc.value.detail["message"] == "Not enough stock available"
 
 
-def test_checkout_multiple_cart_items(session, verified_user, product_factory):
+def test_checkout_multiple_cart_items(session, verified_user, product_factory, test_address):
     """Checkout with multiple products creates all order items and clears the full cart."""
     product1 = product_factory(name="Laptop", price=1000.00, stock=10)
     product2 = product_factory(name="Monitor", price=500.00, stock=7)
@@ -67,7 +68,7 @@ def test_checkout_multiple_cart_items(session, verified_user, product_factory):
     CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product2.id, quantity=1)
     CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product3.id, quantity=3)
 
-    order = CheckoutService.checkout(db=session, user_id=verified_user.id)
+    order = CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
     # Order created with correct total
     assert order is not None
     assert order.user_id == verified_user.id
@@ -101,13 +102,13 @@ def test_checkout_multiple_cart_items(session, verified_user, product_factory):
     assert len(cart_items) == 0
 
 
-def test_checkout_stock_equivalent(session, verified_user, product_factory):
+def test_checkout_stock_equivalent(session, verified_user, product_factory, test_address):
     """Checkout succeeds when quantity exactly matches available stock, leaving stock at zero."""
     product = product_factory(name="Laptop", price=1000.00, stock=10)
 
     CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=10)
 
-    order = CheckoutService.checkout(db=session, user_id=verified_user.id)
+    order = CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
 
     # Order created correctly
     assert order is not None

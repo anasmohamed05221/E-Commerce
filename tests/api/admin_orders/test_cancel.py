@@ -36,6 +36,7 @@ async def test_admin_cancel_order_completed(client, admin_token, session, order_
     """Returns 409 when the order is already COMPLETED."""
     order = order_factory()
     OrderService.update_order_status(session, OrderStatus.CONFIRMED, order.id)
+    OrderService.update_order_status(session, OrderStatus.SHIPPED, order.id)
     OrderService.update_order_status(session, OrderStatus.COMPLETED, order.id)
 
     response = await client.post(

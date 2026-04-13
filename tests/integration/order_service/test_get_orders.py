@@ -4,6 +4,8 @@ from services.orders import OrderService
 from services.cart import CartService
 from services.checkout import CheckoutService
 from models.users import User
+from models.addresses import Address
+from models.enums import PaymentMethod
 from utils.hashing import get_password_hash
 
 
@@ -72,9 +74,13 @@ def test_get_order_wrong_owner(session, verified_user, product_factory):
     session.commit()
     session.refresh(other_user)
 
+    addr = Address(user_id=other_user.id, street="1 St", city="Cairo", country="Egypt", postal_code="11511", is_default=True)
+    session.add(addr)
+    session.commit()
+
     product = product_factory()
     CartService.add_to_cart(session, other_user.id, product.id, 1)
-    other_order = CheckoutService.checkout(db=session, user_id=other_user.id)
+    other_order = CheckoutService.checkout(db=session, user_id=other_user.id, address_id=addr.id, payment_method=PaymentMethod.COD)
 
     with pytest.raises(HTTPException) as exc:
         OrderService.get_order(session, verified_user.id, other_order.id)

@@ -54,6 +54,16 @@ def update_cart_item(request: Request, db: db_dependency, current_user: customer
     return cart_item
 
 
+@router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("5/minute")
+def clear_cart(request: Request, db: db_dependency, current_user: customer_dependency):
+    """Clear the user's cart."""
+
+    CartService.clear_cart(db, current_user.id)
+
+    logger.info("Cart cleared", extra={"user_id": current_user.id})
+
+
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 @limiter.limit("10/minute")
 def remove_from_cart(request: Request, db: db_dependency, current_user: customer_dependency, product_id: int):

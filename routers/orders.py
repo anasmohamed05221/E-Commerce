@@ -1,5 +1,5 @@
 from fastapi import APIRouter, status, Request, Query
-from schemas.orders import OrderOut, OrderListOut
+from schemas.orders import OrderOut, OrderListOut, CheckoutRequest
 from utils.deps import db_dependency, customer_dependency
 from services.checkout import CheckoutService
 from services.orders import OrderService
@@ -16,9 +16,9 @@ router = APIRouter(
 
 @router.post("/", response_model=OrderOut, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
-def checkout(request: Request, db: db_dependency, current_user: customer_dependency):
+def checkout(request: Request, db: db_dependency, current_user: customer_dependency, body: CheckoutRequest):
     """Place an order from the current user's active cart."""
-    order = CheckoutService.checkout(db=db, user_id=current_user.id)
+    order = CheckoutService.checkout(db, current_user.id, body.address_id, body.payment_method)
 
     logger.info("Checkout successful", extra={"user_id": current_user.id, "order_id": order.id})
 

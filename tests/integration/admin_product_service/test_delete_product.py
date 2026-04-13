@@ -5,6 +5,7 @@ from services.cart import CartService
 from services.checkout import CheckoutService
 from models.products import Product
 from models.cart_items import CartItem
+from models.enums import PaymentMethod
 
 
 def test_delete_product_success(session, product_factory):
@@ -25,11 +26,11 @@ def test_delete_product_not_found(session):
     assert exc.value.status_code == 404
 
 
-def test_delete_product_blocked_by_order(session, verified_user, product_factory):
+def test_delete_product_blocked_by_order(session, verified_user, product_factory, test_address):
     """Raises 409 when the product is referenced by an existing order item."""
     product = product_factory()
     CartService.add_to_cart(session, verified_user.id, product.id, 1)
-    CheckoutService.checkout(session, verified_user.id)
+    CheckoutService.checkout(session, verified_user.id, test_address.id, PaymentMethod.COD)
 
     with pytest.raises(HTTPException) as exc:
         ProductService.delete_product(session, product.id)

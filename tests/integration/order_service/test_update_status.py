@@ -16,9 +16,10 @@ def test_update_order_status_pending_to_confirmed(session, verified_user, order_
 
 
 def test_update_order_status_confirmed_to_completed(session, verified_user, order_factory):
-    """Advances a CONFIRMED order to COMPLETED."""
+    """Advances an order through the full happy path to COMPLETED."""
     order = order_factory()
     OrderService.update_order_status(session, OrderStatus.CONFIRMED, order.id)
+    OrderService.update_order_status(session, OrderStatus.SHIPPED, order.id)
 
     updated = OrderService.update_order_status(session, OrderStatus.COMPLETED, order.id)
 
@@ -66,6 +67,7 @@ def test_update_order_status_from_terminal_completed(session, verified_user, ord
     """Raises 409 when trying to advance a COMPLETED order."""
     order = order_factory()
     OrderService.update_order_status(session, OrderStatus.CONFIRMED, order.id)
+    OrderService.update_order_status(session, OrderStatus.SHIPPED, order.id)
     OrderService.update_order_status(session, OrderStatus.COMPLETED, order.id)
 
     with pytest.raises(HTTPException) as exc:

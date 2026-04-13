@@ -1,16 +1,20 @@
 from core.database import Base
-from sqlalchemy import (Column, Integer, String, ForeignKey, Numeric, Float)
+from sqlalchemy import (Column, Integer, String, ForeignKey, Numeric, Float, CheckConstraint)
 from sqlalchemy.orm import relationship
 from .mixins import CreatedAtMixin, UpdatedAtMixin
 
 class Product(Base, CreatedAtMixin, UpdatedAtMixin):
     __tablename__ = "products"
 
+    __table_args__ = (
+        CheckConstraint("stock >= 0", name="ck_product_stock_non_negative"),
+    )
+
     #pk
     id = Column(Integer, primary_key=True, index=True)
 
     #fk
-    category_id = Column(Integer, ForeignKey("categories.id"), index=True)
+    category_id = Column(Integer, ForeignKey("categories.id"), index=True, nullable=False)
     
     #relationships
     order_items = relationship("OrderItem", back_populates="product")

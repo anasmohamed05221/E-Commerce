@@ -16,20 +16,25 @@ async def test_checkout_requires_auth(client):
 
 
 @pytest.mark.asyncio
-async def test_checkout_success(client, user_token, product_factory):
+async def test_checkout_success(client, user_token, product_factory, test_address):
     """Successful checkout returns 201 with full order and item details."""
     product = product_factory(name="Laptop", price=1000.00, stock=10)
 
     await client.post("/cart/", json={"product_id": product.id, "quantity": 2},
                       headers={"Authorization": f"Bearer {user_token}"})
 
-    response = await client.post("/orders/", headers={"Authorization": f"Bearer {user_token}"})
+    response = await client.post(
+        "/orders/",
+        json={"address_id": test_address.id, "payment_method": "cod"},
+        headers={"Authorization": f"Bearer {user_token}"}
+    )
 
     assert response.status_code == 201
     data = response.json()
     # Order fields
     assert float(data["total_amount"]) == 2000.00
     assert data["status"] == "pending"
+    assert data["payment_method"] == "cod"
     # Items with product details
     assert len(data["items"]) == 1
     item = data["items"][0]
@@ -40,15 +45,19 @@ async def test_checkout_success(client, user_token, product_factory):
 
 
 @pytest.mark.asyncio
-async def test_checkout_empty_cart(client, user_token):
+async def test_checkout_empty_cart(client, user_token, test_address):
     """Checkout with an empty cart returns 400."""
-    response = await client.post("/orders/", headers={"Authorization": f"Bearer {user_token}"})
+    response = await client.post(
+        "/orders/",
+        json={"address_id": test_address.id, "payment_method": "cod"},
+        headers={"Authorization": f"Bearer {user_token}"}
+    )
 
     assert response.status_code == 400
 
 
 @pytest.mark.asyncio
-async def test_checkout_insufficient_stock(client, user_token, session, product_factory):
+async def test_checkout_insufficient_stock(client, user_token, session, product_factory, test_address):
     """Checkout raises 409 when stock drops below cart quantity before checkout."""
     product = product_factory(name="Laptop", price=1000.00, stock=10)
 
@@ -60,21 +69,29 @@ async def test_checkout_insufficient_stock(client, user_token, session, product_
     product.stock = 2
     session.commit()
 
-    response = await client.post("/orders/", headers={"Authorization": f"Bearer {user_token}"})
+    response = await client.post(
+        "/orders/",
+        json={"address_id": test_address.id, "payment_method": "cod"},
+        headers={"Authorization": f"Bearer {user_token}"}
+    )
 
     assert response.status_code == 409
     assert response.json()["detail"]["message"] == "Not enough stock available"
 
 
 @pytest.mark.asyncio
-async def test_checkout_response_schema(client, user_token, product_factory):
+async def test_checkout_response_schema(client, user_token, product_factory, test_address):
     """Response includes all expected fields from OrderOut schema."""
     product = product_factory(name="Mouse", price=50.00, stock=5)
 
     await client.post("/cart/", json={"product_id": product.id, "quantity": 1},
                       headers={"Authorization": f"Bearer {user_token}"})
 
-    response = await client.post("/orders/", headers={"Authorization": f"Bearer {user_token}"})
+    response = await client.post(
+        "/orders/",
+        json={"address_id": test_address.id, "payment_method": "cod"},
+        headers={"Authorization": f"Bearer {user_token}"}
+    )
 
     assert response.status_code == 201
     data = response.json()
@@ -82,6 +99,7 @@ async def test_checkout_response_schema(client, user_token, product_factory):
     assert "id" in data
     assert "total_amount" in data
     assert "status" in data
+    assert "payment_method" in data
     assert "created_at" in data
     assert "updated_at" in data
     assert "items" in data
@@ -99,14 +117,35 @@ async def test_checkout_response_schema(client, user_token, product_factory):
 
 
 @pytest.mark.asyncio
-async def test_checkout_clears_cart(client, user_token, product_factory):
+async def test_checkout_clears_cart(client, user_token, product_factory, test_address):
     """Cart is empty after a successful checkout."""
     product = product_factory(name="Keyboard", price=60.00, stock=5)
 
     await client.post("/cart/", json={"product_id": product.id, "quantity": 1},
                       headers={"Authorization": f"Bearer {user_token}"})
 
-    await client.post("/orders/", headers={"Authorization": f"Bearer {user_token}"})
+    await client.post(
+        "/orders/",
+        json={"address_id": test_address.id, "payment_method": "cod"},
+        headers={"Authorization": f"Bearer {user_token}"}
+    )
 
     cart_response = await client.get("/cart/", headers={"Authorization": f"Bearer {user_token}"})
     assert cart_response.json()["cart_items"] == []
+
+
+@pytest.mark.asyncio
+async def test_checkout_invalid_address(client, user_token, product_factory):
+    """Checkout returns 404 when address_id does not belong to the user."""
+    product = product_factory(name="Laptop", price=1000.00, stock=10)
+
+    await client.post("/cart/", json={"product_id": product.id, "quantity": 1},
+                      headers={"Authorization": f"Bearer {user_token}"})
+
+    response = await client.post(
+        "/orders/",
+        json={"address_id": 99999, "payment_method": "cod"},
+        headers={"Authorization": f"Bearer {user_token}"}
+    )
+
+    assert response.status_code == 404

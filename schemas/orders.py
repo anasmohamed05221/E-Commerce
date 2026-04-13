@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from models.enums import OrderStatus
+from models.enums import OrderStatus, PaymentMethod
 from decimal import Decimal
 from datetime import datetime
 from typing import Optional
@@ -33,6 +33,7 @@ class OrderOut(BaseModel):
     total_amount: Decimal
     status: OrderStatus
     items: list[OrderItemOut]
+    payment_method: PaymentMethod
     created_at: datetime
     updated_at: datetime
 
@@ -76,3 +77,8 @@ class AdminOrderOut(OrderOut):
 
 class OrderStatusUpdate(BaseModel):
     status: OrderStatus
+
+
+class CheckoutRequest(BaseModel):
+    address_id: int
+    payment_method: PaymentMethod

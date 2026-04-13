@@ -36,7 +36,7 @@ def get_address(request: Request, db: db_dependency, current_user: customer_depe
     return AddressService.get_address(db=db, user_id=current_user.id, address_id=address_id)
 
 
-@router.put("/{address_id}", response_model=AddressOut, status_code=status.HTTP_200_OK)
+@router.patch("/{address_id}", response_model=AddressOut, status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
 def update_address(request: Request, db: db_dependency, current_user: customer_dependency, address_id: int, data: AddressUpdate):
     """Partially update an address. Returns 404 if not found or not owned by the user."""

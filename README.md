@@ -2,7 +2,7 @@
 
 # E-Commerce Backend
 
-**A production-grade REST API for an e-commerce platform — engineered for production, not tutorials.**
+**E-commerce REST API built with real-world backend engineering practices, designed under real constraints and trade-offs.**
 
 [![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.121-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -15,13 +15,25 @@
 
 ---
 
-Every model, service, route, migration, and test was written intentionally. The goal was not to build a tutorial app — it was to solve the real problems that production e-commerce backends face: race conditions, atomic transactions, token security, role enforcement, inventory integrity, cache invalidation, and a test suite that actually catches bugs.
+## Live Demo
+
+| | |
+|---|---|
+| **API** | https://ecommerce-api-25zx.onrender.com |
+| **Docs** | https://ecommerce-api-25zx.onrender.com/docs |
+| **Health** | https://ecommerce-api-25zx.onrender.com/health |
+
+> Free tier instances spin down after inactivity — first request may take ~30 seconds to wake up.
+
+---
+
+The system was built intentionally and shaped iteratively as complexity grew, converging into a clean, layered architecture that keeps it maintainable, debuggable, and scalable. It was not built as a tutorial, but to deal with real production backend challenges, such as race conditions, atomic transactions, security, data integrity, caching, and effective testing.
 
 ---
 
 ## Engineering Highlights
 
-These are the decisions that matter — and why they were made:
+These are the decisions that matter, and why they were made:
 
 **Checkout is atomic or it doesn't happen.**
 Stock decrement, order creation, cart clear, and inventory log all commit in a single transaction. If any step fails, everything rolls back. No partial orders, no phantom stock.
@@ -202,7 +214,7 @@ The setup is engineered, not just functional:
 - **No bcrypt in fixtures** — passwords pre-hashed once at module load. JWT tokens generated directly without HTTP round-trips. Bcrypt cost is not paid on every test.
 - **Worker-scoped emails** — fixture emails include the xdist worker ID, preventing unique-constraint collisions under parallel execution.
 
-> Before optimization: 194 tests in ~70s — After: 412 tests in ~13s
+> Before optimization: 194 tests in ~70s — After: 412 tests in ~12s
 
 ---
 
@@ -226,15 +238,28 @@ Domains covered: `auth` · `users` · `addresses` · `products` · `categories` 
 | Rate Limiting | SlowAPI — Redis-backed, multi-worker safe |
 | Email | SMTP + tenacity (3-retry exponential backoff) |
 | Logging | Structured JSON · rotating file handlers · request ID tracing |
+| Containerization | Docker · docker-compose (local multi-service parity) |
 | Testing | pytest + pytest-asyncio + httpx + pytest-xdist |
-| CI | GitHub Actions |
+| CI/CD | GitHub Actions CI · Render auto-deploy from main |
 | Linting | Ruff |
 
 ---
 
 ## Quick Start
 
-> **Prerequisites:** PostgreSQL and Redis must be running locally (or update `.env` to point to remote instances).
+**Option 1 — Docker (recommended, no local Postgres/Redis needed)**
+
+```bash
+git clone https://github.com/anasmohamed05221/E-Commerce.git
+cd E-Commerce
+docker-compose up --build
+```
+
+App runs at `http://localhost:8000`. Migrations run automatically on startup.
+
+**Option 2 — Local**
+
+> **Prerequisites:** PostgreSQL and Redis must be running locally.
 
 ```bash
 git clone https://github.com/anasmohamed05221/E-Commerce.git
@@ -249,7 +274,7 @@ uvicorn main:app --reload
 
 ## Roadmap
 
-**Epic 1 — MVP** ✅ shipped
+**Epic 1 — MVP** ✅ shipped · ✅ deployed
 - [x] Full auth pipeline with token rotation and two-step password change
 - [x] Product catalog with category filtering, price filters, and Redis caching
 - [x] Paginated responses on all list endpoints
@@ -258,8 +283,21 @@ uvicorn main:app --reload
 - [x] Admin: product CRUD, order status FSM, user management
 - [x] RBAC, rate limiting, structured logging, health checks
 - [x] 412 tests · GitHub Actions CI
+- [x] Dockerized — Dockerfile, docker-compose, entrypoint.sh
+- [x] Deployed to Render — managed PostgreSQL + Redis, HTTPS, auto-deploy from main
 
-**Async SQLAlchemy Migration** *(immediate next — before Epic 2)*
+**Planned**
+- Async SQLAlchemy migration (`create_async_engine`, `AsyncSession`, `select()` API)
+- Stripe payments + webhooks, Celery task queue, order confirmation emails, coupons
+- OAuth login, reviews and ratings, wishlist, shipment tracking, in-app notifications
+- Typesense product search with filters and typo tolerance
+- AWS deployment (EC2 + RDS + Upstash Redis) as a cloud learning exercise
+- Monitoring, admin dashboard, reports
+
+<details>
+<summary>Full roadmap breakdown</summary>
+
+**Async SQLAlchemy Migration** *(before Epic 2)*
 - [ ] Migrate from sync to async SQLAlchemy (`create_async_engine`, `AsyncSession`, `select()` API)
 - [ ] Convert all service methods to async, all routes back to `async def`
 - [ ] Update Alembic env.py, all test fixtures and conftest to async equivalents
@@ -282,11 +320,16 @@ uvicorn main:app --reload
 **Epic 4 — Search**
 - [ ] Typesense product search with filters, typo tolerance, and ranking
 
-**Epic 5 — Platform**
+**Epic 5 — DevOps & Platform Improvements**
+- [ ] AWS deployment (EC2 + RDS + Upstash Redis) — real cloud skills, 12-month free tier
+- [ ] Monitoring and observability (log aggregation, error tracking)
 - [ ] Admin dashboard: revenue, orders, top products, new users (charts)
-- [ ] Sales reports by period and category
+- [ ] Reports: sales by period, revenue by category, return rates
 - [ ] Hierarchical categories
-- [ ] Monitoring and observability improvements
+- [ ] SEO slugs for product/category pages
+- [ ] CSRF protection
+
+</details>
 
 ---
 

@@ -226,15 +226,28 @@ Domains covered: `auth` · `users` · `addresses` · `products` · `categories` 
 | Rate Limiting | SlowAPI — Redis-backed, multi-worker safe |
 | Email | SMTP + tenacity (3-retry exponential backoff) |
 | Logging | Structured JSON · rotating file handlers · request ID tracing |
+| Containerization | Docker · docker-compose (local multi-service parity) |
 | Testing | pytest + pytest-asyncio + httpx + pytest-xdist |
-| CI | GitHub Actions |
+| CI/CD | GitHub Actions CI · Render auto-deploy from main |
 | Linting | Ruff |
 
 ---
 
 ## Quick Start
 
-> **Prerequisites:** PostgreSQL and Redis must be running locally (or update `.env` to point to remote instances).
+**Option 1 — Docker (recommended, no local Postgres/Redis needed)**
+
+```bash
+git clone https://github.com/anasmohamed05221/E-Commerce.git
+cd E-Commerce
+docker-compose up --build
+```
+
+App runs at `http://localhost:8000`. Migrations run automatically on startup.
+
+**Option 2 — Local**
+
+> **Prerequisites:** PostgreSQL and Redis must be running locally.
 
 ```bash
 git clone https://github.com/anasmohamed05221/E-Commerce.git
@@ -249,7 +262,7 @@ uvicorn main:app --reload
 
 ## Roadmap
 
-**Epic 1 — MVP** ✅ shipped
+**Epic 1 — MVP** ✅ shipped · 🚀 deploying
 - [x] Full auth pipeline with token rotation and two-step password change
 - [x] Product catalog with category filtering, price filters, and Redis caching
 - [x] Paginated responses on all list endpoints
@@ -258,13 +271,16 @@ uvicorn main:app --reload
 - [x] Admin: product CRUD, order status FSM, user management
 - [x] RBAC, rate limiting, structured logging, health checks
 - [x] 412 tests · GitHub Actions CI
+- [x] Dockerized — Dockerfile, docker-compose, entrypoint.sh
+- [ ] Deploy to Render (managed PostgreSQL + Redis, HTTPS, auto-deploy)
 
 **Planned**
 - Async SQLAlchemy migration (`create_async_engine`, `AsyncSession`, `select()` API)
 - Stripe payments + webhooks, Celery task queue, order confirmation emails, coupons
 - OAuth login, reviews and ratings, wishlist, shipment tracking, in-app notifications
 - Typesense product search with filters and typo tolerance
-- Monitoring, admin dashboard, reports, HTTPS via nginx/certbot
+- AWS deployment (EC2 + RDS + Upstash Redis) as a cloud learning exercise
+- Monitoring, admin dashboard, reports
 
 <details>
 <summary>Full roadmap breakdown</summary>
@@ -293,13 +309,13 @@ uvicorn main:app --reload
 - [ ] Typesense product search with filters, typo tolerance, and ranking
 
 **Epic 5 — DevOps & Platform Improvements**
-- [ ] Monitoring, infra improvements, and scaling
+- [ ] AWS deployment (EC2 + RDS + Upstash Redis) — real cloud skills, 12-month free tier
+- [ ] Monitoring and observability (log aggregation, error tracking)
 - [ ] Admin dashboard: revenue, orders, top products, new users (charts)
 - [ ] Reports: sales by period, revenue by category, return rates
 - [ ] Hierarchical categories
 - [ ] SEO slugs for product/category pages
 - [ ] CSRF protection
-- [ ] HTTPS enforced via nginx/certbot
 
 </details>
 

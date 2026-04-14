@@ -1,0 +1,12 @@
+.git
+.venv
+__pycache__
+*.pyc
+*.pyo
+.env
+logs/
+tests/
+.agent/
+pyrightconfig.json
+CLAUDE.md
+.claude/

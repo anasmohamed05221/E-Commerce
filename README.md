@@ -2,7 +2,7 @@
 
 # E-Commerce Backend
 
-**A production-grade REST API for an e-commerce platform — engineered for production, not tutorials.**
+**E-commerce REST API built with real-world backend engineering practices, designed under real constraints and trade-offs.**
 
 [![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.121-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -15,13 +15,13 @@
 
 ---
 
-Every model, service, route, migration, and test was written intentionally. The goal was not to build a tutorial app — it was to solve the real problems that production e-commerce backends face: race conditions, atomic transactions, token security, role enforcement, inventory integrity, cache invalidation, and a test suite that actually catches bugs.
+The system was built intentionally and shaped iteratively as complexity grew, converging into a clean, layered architecture that keeps it maintainable, debuggable, and scalable. It was not built as a tutorial, but to deal with real production backend challenges, such as race conditions, atomic transactions, security, data integrity, caching, and effective testing.
 
 ---
 
 ## Engineering Highlights
 
-These are the decisions that matter — and why they were made:
+These are the decisions that matter, and why they were made:
 
 **Checkout is atomic or it doesn't happen.**
 Stock decrement, order creation, cart clear, and inventory log all commit in a single transaction. If any step fails, everything rolls back. No partial orders, no phantom stock.
@@ -202,7 +202,7 @@ The setup is engineered, not just functional:
 - **No bcrypt in fixtures** — passwords pre-hashed once at module load. JWT tokens generated directly without HTTP round-trips. Bcrypt cost is not paid on every test.
 - **Worker-scoped emails** — fixture emails include the xdist worker ID, preventing unique-constraint collisions under parallel execution.
 
-> Before optimization: 194 tests in ~70s — After: 412 tests in ~13s
+> Before optimization: 194 tests in ~70s — After: 412 tests in ~12s
 
 ---
 
@@ -259,7 +259,17 @@ uvicorn main:app --reload
 - [x] RBAC, rate limiting, structured logging, health checks
 - [x] 412 tests · GitHub Actions CI
 
-**Async SQLAlchemy Migration** *(immediate next — before Epic 2)*
+**Planned**
+- Async SQLAlchemy migration (`create_async_engine`, `AsyncSession`, `select()` API)
+- Stripe payments + webhooks, Celery task queue, order confirmation emails, coupons
+- OAuth login, reviews and ratings, wishlist, shipment tracking, in-app notifications
+- Typesense product search with filters and typo tolerance
+- Monitoring, admin dashboard, reports, HTTPS via nginx/certbot
+
+<details>
+<summary>Full roadmap breakdown</summary>
+
+**Async SQLAlchemy Migration** *(before Epic 2)*
 - [ ] Migrate from sync to async SQLAlchemy (`create_async_engine`, `AsyncSession`, `select()` API)
 - [ ] Convert all service methods to async, all routes back to `async def`
 - [ ] Update Alembic env.py, all test fixtures and conftest to async equivalents
@@ -290,6 +300,8 @@ uvicorn main:app --reload
 - [ ] SEO slugs for product/category pages
 - [ ] CSRF protection
 - [ ] HTTPS enforced via nginx/certbot
+
+</details>
 
 ---
 

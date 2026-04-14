@@ -15,6 +15,18 @@
 
 ---
 
+## Live Demo
+
+| | |
+|---|---|
+| **API** | https://ecommerce-api-25zx.onrender.com |
+| **Docs** | https://ecommerce-api-25zx.onrender.com/docs |
+| **Health** | https://ecommerce-api-25zx.onrender.com/health |
+
+> Free tier instances spin down after inactivity — first request may take ~30 seconds to wake up.
+
+---
+
 The system was built intentionally and shaped iteratively as complexity grew, converging into a clean, layered architecture that keeps it maintainable, debuggable, and scalable. It was not built as a tutorial, but to deal with real production backend challenges, such as race conditions, atomic transactions, security, data integrity, caching, and effective testing.
 
 ---
@@ -262,7 +274,7 @@ uvicorn main:app --reload
 
 ## Roadmap
 
-**Epic 1 — MVP** ✅ shipped · 🚀 deploying
+**Epic 1 — MVP** ✅ shipped · ✅ deployed
 - [x] Full auth pipeline with token rotation and two-step password change
 - [x] Product catalog with category filtering, price filters, and Redis caching
 - [x] Paginated responses on all list endpoints
@@ -272,7 +284,7 @@ uvicorn main:app --reload
 - [x] RBAC, rate limiting, structured logging, health checks
 - [x] 412 tests · GitHub Actions CI
 - [x] Dockerized — Dockerfile, docker-compose, entrypoint.sh
-- [ ] Deploy to Render (managed PostgreSQL + Redis, HTTPS, auto-deploy)
+- [x] Deployed to Render — managed PostgreSQL + Redis, HTTPS, auto-deploy from main
 
 **Planned**
 - Async SQLAlchemy migration (`create_async_engine`, `AsyncSession`, `select()` API)

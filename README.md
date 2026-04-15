@@ -66,7 +66,7 @@ Built as a deliberate learning exercise to practice backend engineering the way 
 
 > Decisions that shaped the system, and why they were made.
 
-**⚡ Checkout is atomic or it doesn't happen.**
+**⚛️ Checkout is atomic or it doesn't happen.**
 Stock decrement, order creation, cart clear, and inventory log all commit in a single transaction. If any step fails, everything rolls back. No partial orders, no phantom stock.
 
 **🔒 Race conditions are prevented at the database level.**
@@ -78,7 +78,7 @@ Refresh tokens, password reset tokens, and password change tokens are all hashed
 **🔄 Token rotation with reuse detection.**
 On every refresh, the old token is revoked and a new pair is issued. Presenting a revoked token is treated as a security event.
 
-**📊 Order status follows a strict FSM.**
+**⚙️ Order status follows a strict FSM.**
 `PENDING → CONFIRMED → SHIPPED → COMPLETED`. Skipping states or moving backwards raises a 409. Cancellation is a separate path with different rules for customers vs. admins.
 
 **💰 Price snapshots at purchase time.**

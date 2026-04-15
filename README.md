@@ -57,14 +57,12 @@ On every refresh, the old token is revoked and a new pair is issued. Presenting 
 **Every stock change is audited.**
 `inventory_changes` logs every increment and decrement with a reason (`SALE`, `CANCELLATION`, `RESTOCK`, `ADJUSTMENT`, `RETURN`). Stock is never mutated silently.
 
-**Read-heavy data is cached in Redis.**
-Category listings are cached in Redis with a 1-hour TTL (cache-aside pattern). Every write — create, update, delete — explicitly invalidates the cache key. Stale data is never served after a mutation.
+**Redis is used for both caching and rate limiting.**
+Category listings are cached with a 1-hour TTL (cache-aside pattern). Every write, create, update, delete explicitly invalidates the cache key. Stale data is never served after a mutation. Rate limiting counters are also stored in Redis, making limits shared across all Gunicorn workers, a user can't bypass them by hitting different processes.
 
 **Paginated responses on every list endpoint.**
 Products, orders, and admin views all return `{ items, total, limit, offset }`. Callers can page through large datasets without pulling unbounded result sets. Product browsing also supports filters: `category_id`, `min_price`, `max_price`.
 
-**Rate limiting is multi-worker safe.**
-SlowAPI is backed by Redis, not in-memory counters. Rate limits are shared across all Gunicorn workers — a user can't bypass limits by hitting different processes.
 
 **Health check verifies dependencies, not just process uptime.**
 `GET /health` pings PostgreSQL and Redis and returns 503 if either is unreachable — not just 200 because the process is alive.

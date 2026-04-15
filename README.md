@@ -21,14 +21,43 @@
 | | |
 |---|---|
 | **API** | https://ecommerce-api-25zx.onrender.com |
-| **Docs** | https://ecommerce-api-25zx.onrender.com/docs |
+| **Docs (Swagger UI)** | https://ecommerce-api-25zx.onrender.com/docs |
 | **Health** | https://ecommerce-api-25zx.onrender.com/health |
 
-> Free tier instances spin down after inactivity — first request may take ~30 seconds to wake up.
+> Free tier instances spin down after inactivity, first request may take ~50 seconds to wake up.
 
 ---
 
-The system was built intentionally and shaped iteratively as complexity grew, converging into a clean, layered architecture that keeps it maintainable, debuggable, and scalable. It was not built as a tutorial, but to deal with real production backend challenges, such as race conditions, atomic transactions, security, data integrity, caching, and effective testing.
+Built as a deliberate learning exercise to practice backend engineering the way it works in real teams, not to follow a tutorial. The system was shaped iteratively as complexity grew, converging into a clean, layered architecture that keeps it maintainable, flexible, and scalable. It deals with real challenges such as race conditions, atomic transactions, token security, cache invalidation, and production deployment.
+
+---
+
+## Features
+
+**Customers can:**
+- Register with email verification (6-digit code, 10-minute expiry)
+- Log in with short-lived JWT access tokens and long-lived refresh tokens
+- Refresh tokens with automatic rotation (old token revoked on every refresh, reuse rejected)
+- Log out and revoke the current session
+- Request a password reset via a time-limited, single-use token
+- Request a password change with two-step email confirmation (confirm or deny via email)
+- Update profile (name, phone number)
+- Self-deactivate their account
+- Browse products with category, min/max price filters, and pagination
+- View individual product details
+- Manage cart: add items, update quantities, remove individual items, or clear the entire cart
+- Manage multiple delivery addresses: add, edit, delete, and set a default
+- Place an order with a selected address and COD payment (Just for MVP)
+- View paginated order history and individual order details
+- Cancel eligible orders (PENDING status only)
+
+**Admins can:**
+- Create, update, and delete products and categories
+- View all orders across the platform with pagination
+- Transition order status through the lifecycle (CONFIRMED, SHIPPED, COMPLETED)
+- List all users and view individual user profiles
+- Deactivate and reactivate user accounts
+- Change user roles (promote to admin or demote back to customer)
 
 ---
 
@@ -43,7 +72,7 @@ Stock decrement, order creation, cart clear, and inventory log all commit in a s
 Checkout and order cancellation use `SELECT FOR UPDATE` (pessimistic locking) to acquire a row-level lock before reading stock. Two concurrent checkouts for the same product cannot both succeed on 1 unit of stock.
 
 **Tokens are never stored in plaintext.**
-Refresh tokens, password reset tokens, and password change tokens are all hashed with SHA-256 before being written to the database. The raw token travels over the wire once — only its hash lives in the DB. Passwords use bcrypt.
+Refresh tokens, password reset tokens, and password change tokens are all hashed with SHA-256 before being written to the database. The raw token travels over the wire once, only its hash lives in the DB. Passwords use bcrypt.
 
 **Token rotation with reuse detection.**
 On every refresh, the old token is revoked and a new pair is issued. Presenting a revoked token is treated as a security event.
@@ -64,8 +93,11 @@ Category listings are cached with a 1-hour TTL (cache-aside pattern). Every writ
 Products, orders, and admin views all return `{ items, total, limit, offset }`. Callers can page through large datasets without pulling unbounded result sets. Product browsing also supports filters: `category_id`, `min_price`, `max_price`.
 
 
+**Logging is structured and environment-aware.**
+Every request is logged as JSON with a unique request ID, status code, duration, and client IP. Production logs go to stdout only (12-Factor App); development logs go to rotating files.
+
 **Health check verifies dependencies, not just process uptime.**
-`GET /health` pings PostgreSQL and Redis and returns 503 if either is unreachable — not just 200 because the process is alive.
+`GET /health` pings PostgreSQL and Redis and returns 503 if either is unreachable, not just 200 because the process is alive.
 
 ---
 
@@ -82,8 +114,8 @@ Request
 
 Hard rules enforced throughout:
 - **Routers** never touch the database directly
-- **Services** own all business logic and authorization checks — ownership is verified here, not in the router
-- **Schemas** validate all input at the boundary — password strength, phone normalization (E.164 via libphonenumber), email format
+- **Services** own all business logic and authorization checks, ownership is verified here, not in the router
+- **Schemas** validate all input at the boundary: password strength, phone normalization (E.164 via libphonenumber), email format
 - **Redis** is accessed only from services, never from routers
 
 ---
@@ -97,12 +129,12 @@ Not a tutorial JWT setup. Every edge case is handled.
 | Registration | Email + password, validated via Pydantic + phonenumbers |
 | Email Verification | 6-digit code with 10-minute expiry |
 | Login | Short-lived access token (15 min) + long-lived refresh token (7 days) |
-| Token Rotation | Old refresh token revoked on every refresh — reuse is rejected |
-| Token Storage | All tokens hashed with SHA-256 before DB write — plaintext never persists |
+| Token Rotation | Old refresh token revoked on every refresh, reuse is rejected |
+| Token Storage | All tokens hashed with SHA-256 before DB write, plaintext never persists |
 | Password Change | Two-step: pending hash stored, confirmation email sent, applied on confirm |
 | Password Reset | Time-limited token (15 min), hashed in DB, single-use |
 | Logout | Single device (revoke one token) or all devices (revoke all) |
-| Account Deactivation | Soft delete — account disabled, all sessions revoked |
+| Account Deactivation | Soft delete, account disabled, all sessions revoked |
 | RBAC | `CUSTOMER` and `ADMIN` roles enforced via FastAPI dependency injection |
 
 ---
@@ -193,7 +225,7 @@ erDiagram
 
 ## Test Suite
 
-**412 tests** — unit, integration, API, and middleware layers — running against a real PostgreSQL database.
+**412 tests**: unit, integration, API, and middleware layers, running against a real PostgreSQL database for Dev/Prod parity.
 
 ```
 tests/
@@ -201,27 +233,27 @@ tests/
 ├── integration/    → every service method tested directly against the DB
 │                     auth · users · tokens · products · categories · cart
 │                     checkout · orders · addresses · admin services
-├── api/            → full HTTP layer — status codes, response schemas,
+├── api/            → full HTTP layer: status codes, response schemas,
 │                     auth enforcement, RBAC, ownership, edge cases
 └── middleware/     → rate limiting, request ID propagation
 ```
 
 The setup is engineered, not just functional:
 
-- **Transactional isolation** — schema created once per session, each test runs in a savepoint that rolls back on completion. No DDL overhead per test.
-- **Parallel execution** — `pytest-xdist` with filelock-guarded DDL. One worker creates the schema; all others reuse it concurrently.
-- **No bcrypt in fixtures** — passwords pre-hashed once at module load. JWT tokens generated directly without HTTP round-trips. Bcrypt cost is not paid on every test.
-- **Worker-scoped emails** — fixture emails include the xdist worker ID, preventing unique-constraint collisions under parallel execution.
+- **Transactional isolation** : schema created once per session, each test runs in a savepoint that rolls back on completion. No DDL overhead per test.
+- **Parallel execution** : `pytest-xdist` with filelock-guarded DDL. One worker creates the schema; all others reuse it concurrently.
+- **No bcrypt in fixtures** : passwords pre-hashed once at module load. JWT tokens generated directly without HTTP round-trips. Bcrypt cost is not paid on every test.
+- **Worker-scoped emails** : fixture emails include the xdist worker ID, preventing unique-constraint collisions under parallel execution.
 
-> Before optimization: 194 tests in ~70s — After: 412 tests in ~12s
+> Before optimization: 194 tests in ~70s, After: 412 tests in ~12s
 
 ---
 
 ## API Reference
 
-Full contracts for every endpoint are documented in [`docs/API_Contracts/`](docs/API_Contracts/) as Markdown files — one file per domain, covering request/response schemas, status codes, auth requirements, and edge cases.
+**45 endpoints across 11 domains.** Full contracts documented in [`docs/API_Contracts/`](docs/API_Contracts/) as Markdown files, one file per domain, covering request/response schemas, status codes, auth requirements, and edge cases.
 
-Domains covered: `auth` · `users` · `addresses` · `products` · `categories` · `cart` · `orders` · `admin/products` · `admin/categories` · `admin/orders` · `admin/users`
+Domains: `auth` · `users` · `addresses` · `products` · `categories` · `cart` · `orders` · `admin/products` · `admin/categories` · `admin/orders` · `admin/users`
 
 ---
 
@@ -231,10 +263,10 @@ Domains covered: `auth` · `users` · `addresses` · `products` · `categories` 
 |---|---|
 | Framework | FastAPI + Uvicorn |
 | Database | PostgreSQL + SQLAlchemy 2.0 + Alembic |
-| Cache | Redis — async, cache-aside pattern, write-through invalidation |
+| Cache | Redis async, cache-aside pattern, write-through invalidation |
 | Auth | python-jose (JWT) + passlib (bcrypt) + SHA-256 token hashing |
 | Validation | Pydantic v2 + email-validator + phonenumbers (E.164) |
-| Rate Limiting | SlowAPI — Redis-backed, multi-worker safe |
+| Rate Limiting | SlowAPI is Redis-backed, multi-worker safe |
 | Email | SMTP + tenacity (3-retry exponential backoff) |
 | Logging | Structured JSON · rotating file handlers · request ID tracing |
 | Containerization | Docker · docker-compose (local multi-service parity) |
@@ -246,7 +278,7 @@ Domains covered: `auth` · `users` · `addresses` · `products` · `categories` 
 
 ## Quick Start
 
-**Option 1 — Docker (recommended, no local Postgres/Redis needed)**
+**Option 1: Docker (recommended, no local Postgres/Redis needed)**
 
 ```bash
 git clone https://github.com/anasmohamed05221/E-Commerce.git
@@ -256,7 +288,7 @@ docker-compose up --build
 
 App runs at `http://localhost:8000`. Migrations run automatically on startup.
 
-**Option 2 — Local**
+**Option 2: Local**
 
 > **Prerequisites:** PostgreSQL and Redis must be running locally.
 
@@ -269,11 +301,33 @@ alembic upgrade head
 uvicorn main:app --reload
 ```
 
+**Seeding an admin user (both options)**
+
+Linux / macOS:
+
+```bash
+SEED_ADMIN_EMAIL=admin@example.com \
+SEED_ADMIN_PASSWORD=yourpassword \
+SEED_ADMIN_FIRST_NAME=Admin \
+SEED_ADMIN_LAST_NAME=User \
+python -m scripts.seed_admin
+```
+
+Windows PowerShell:
+
+```powershell
+$env:SEED_ADMIN_EMAIL="admin@example.com"
+$env:SEED_ADMIN_PASSWORD="yourpassword"
+$env:SEED_ADMIN_FIRST_NAME="Admin"
+$env:SEED_ADMIN_LAST_NAME="User"
+python -m scripts.seed_admin
+```
+
 ---
 
 ## Roadmap
 
-**Epic 1 — MVP** ✅ shipped · ✅ deployed
+**Epic 1: MVP** ✅ shipped · ✅ deployed
 - [x] Full auth pipeline with token rotation and two-step password change
 - [x] Product catalog with category filtering, price filters, and Redis caching
 - [x] Paginated responses on all list endpoints
@@ -282,8 +336,8 @@ uvicorn main:app --reload
 - [x] Admin: product CRUD, order status FSM, user management
 - [x] RBAC, rate limiting, structured logging, health checks
 - [x] 412 tests · GitHub Actions CI
-- [x] Dockerized — Dockerfile, docker-compose, entrypoint.sh
-- [x] Deployed to Render — managed PostgreSQL + Redis, HTTPS, auto-deploy from main
+- [x] Dockerized: Dockerfile, docker-compose, entrypoint.sh
+- [x] Deployed to Render, managed PostgreSQL + Redis, HTTPS, auto-deploy from main
 
 **Planned**
 - Async SQLAlchemy migration (`create_async_engine`, `AsyncSession`, `select()` API)
@@ -301,14 +355,14 @@ uvicorn main:app --reload
 - [ ] Convert all service methods to async, all routes back to `async def`
 - [ ] Update Alembic env.py, all test fixtures and conftest to async equivalents
 
-**Epic 2 — Payments & Background Jobs**
+**Epic 2: Payments & Background Jobs**
 - [ ] Stripe integration (checkout session + webhooks)
 - [ ] Celery + Redis task queue for async background jobs
 - [ ] Order confirmation email on payment
 - [ ] Coupons and promo codes (fixed + percentage discounts, expiry, min order value)
 - [ ] Coupon management (admin: create, disable, list)
 
-**Epic 3 — Engagement & Fulfillment**
+**Epic 3: Engagement & Fulfillment**
 - [ ] OAuth login (Google / Apple / Facebook)
 - [ ] Shipment & delivery simulation with order tracking
 - [ ] Wishlist (add / remove / move to cart)
@@ -316,11 +370,11 @@ uvicorn main:app --reload
 - [ ] Review moderation (admin: approve, hide, delete)
 - [ ] In-app notifications (order status changes)
 
-**Epic 4 — Search**
+**Epic 4: Search**
 - [ ] Typesense product search with filters, typo tolerance, and ranking
 
-**Epic 5 — DevOps & Platform Improvements**
-- [ ] AWS deployment (EC2 + RDS + Upstash Redis) — real cloud skills, 12-month free tier
+**Epic 5: DevOps & Platform Improvements**
+- [ ] AWS deployment (EC2 + RDS + Upstash Redis). Real cloud skills, 12-month free tier
 - [ ] Monitoring and observability (log aggregation, error tracking)
 - [ ] Admin dashboard: revenue, orders, top products, new users (charts)
 - [ ] Reports: sales by period, revenue by category, return rates

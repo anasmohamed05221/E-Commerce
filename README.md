@@ -34,69 +34,69 @@ Built as a deliberate learning exercise to practice backend engineering the way 
 
 ## Features
 
-**Customers can:**
-- Register with email verification (6-digit code, 10-minute expiry)
-- Log in with short-lived JWT access tokens and long-lived refresh tokens
-- Refresh tokens with automatic rotation (old token revoked on every refresh, reuse rejected)
-- Log out and revoke the current session
-- Request a password reset via a time-limited, single-use token
-- Request a password change with two-step email confirmation (confirm or deny via email)
-- Update profile (name, phone number)
-- Self-deactivate their account
-- Browse products with category, min/max price filters, and pagination
+### 👤 Auth & Identity
+- Email registration with 6-digit verification code (10-minute expiry)
+- Login with short-lived JWT access tokens + long-lived refresh tokens
+- Token rotation on every refresh: old token revoked, reuse rejected
+- Two-step password change via email confirmation (confirm or deny)
+- Time-limited, single-use password reset tokens
+- Logout: single session or all devices at once
+- Profile update (name, phone number) and self-deactivation
+
+### 🛍️ Shopping
+- Browse products with `category`, `min_price`, `max_price` filters and pagination
 - View individual product details
-- Manage cart: add items, update quantities, remove individual items, or clear the entire cart
-- Manage multiple delivery addresses: add, edit, delete, and set a default
-- Place an order with a selected address and COD payment (Just for MVP)
+- Manage cart: add, update quantity, remove items, or clear all
+- Manage multiple delivery addresses with a default flag
+- Place orders with COD payment and a selected address
 - View paginated order history and individual order details
 - Cancel eligible orders (PENDING status only)
 
-**Admins can:**
-- Create, update, and delete products and categories
+### 🔧 Admin
+- Full product and category CRUD
 - View all orders across the platform with pagination
-- Transition order status through the lifecycle (CONFIRMED, SHIPPED, COMPLETED)
-- List all users and view individual user profiles
-- Deactivate and reactivate user accounts
+- Drive orders through the status lifecycle (PENDING → CONFIRMED → SHIPPED → COMPLETED)
+- List all users and view individual profiles
+- Deactivate and reactivate accounts
 - Change user roles (promote to admin or demote back to customer)
 
 ---
 
 ## Engineering Highlights
 
-These are the decisions that matter, and why they were made:
+> Decisions that shaped the system, and why they were made.
 
-**Checkout is atomic or it doesn't happen.**
+**⚡ Checkout is atomic or it doesn't happen.**
 Stock decrement, order creation, cart clear, and inventory log all commit in a single transaction. If any step fails, everything rolls back. No partial orders, no phantom stock.
 
-**Race conditions are prevented at the database level.**
+**🔒 Race conditions are prevented at the database level.**
 Checkout and order cancellation use `SELECT FOR UPDATE` (pessimistic locking) to acquire a row-level lock before reading stock. Two concurrent checkouts for the same product cannot both succeed on 1 unit of stock.
 
-**Tokens are never stored in plaintext.**
+**🛡️ Tokens are never stored in plaintext.**
 Refresh tokens, password reset tokens, and password change tokens are all hashed with SHA-256 before being written to the database. The raw token travels over the wire once, only its hash lives in the DB. Passwords use bcrypt.
 
-**Token rotation with reuse detection.**
+**🔄 Token rotation with reuse detection.**
 On every refresh, the old token is revoked and a new pair is issued. Presenting a revoked token is treated as a security event.
 
-**Order status follows a strict FSM.**
+**📊 Order status follows a strict FSM.**
 `PENDING → CONFIRMED → SHIPPED → COMPLETED`. Skipping states or moving backwards raises a 409. Cancellation is a separate path with different rules for customers vs. admins.
 
-**Price snapshots at purchase time.**
+**💰 Price snapshots at purchase time.**
 `order_items.price_at_time` captures the product price at checkout. Changing a product price never retroactively affects existing orders.
 
-**Every stock change is audited.**
+**📋 Every stock change is audited.**
 `inventory_changes` logs every increment and decrement with a reason (`SALE`, `CANCELLATION`, `RESTOCK`, `ADJUSTMENT`, `RETURN`). Stock is never mutated silently.
 
-**Redis is used for both caching and rate limiting.**
-Category listings are cached with a 1-hour TTL (cache-aside pattern). Every write, create, update, delete explicitly invalidates the cache key. Stale data is never served after a mutation. Rate limiting counters are also stored in Redis, making limits shared across all Gunicorn workers, a user can't bypass them by hitting different processes.
+**⚡ Redis for caching and rate limiting.**
+Category listings are cached with a 1-hour TTL (cache-aside pattern). Every write explicitly invalidates the cache, stale data is never served after a mutation. Rate limiting counters live in Redis too, shared across all Gunicorn workers so a user can't bypass limits by hitting different processes.
 
-**Paginated responses on every list endpoint.**
+**📄 Paginated responses on every list endpoint.**
 Products, orders, and admin views all return `{ items, total, limit, offset }`. Callers can page through large datasets without pulling unbounded result sets. Product browsing also supports filters: `category_id`, `min_price`, `max_price`.
 
-
-**Logging is structured and environment-aware.**
+**🖥️ Logging is structured and environment-aware.**
 Every request is logged as JSON with a unique request ID, status code, duration, and client IP. Production logs go to stdout only (12-Factor App); development logs go to rotating files.
 
-**Health check verifies dependencies, not just process uptime.**
+**🏥 Health check verifies dependencies, not just process uptime.**
 `GET /health` pings PostgreSQL and Redis and returns 503 if either is unreachable, not just 200 because the process is alive.
 
 ---

@@ -2,13 +2,14 @@
 
 # E-Commerce Backend
 
-**E-commerce REST API built with real-world backend engineering practices, designed under real constraints and trade-offs.**
+**Production-grade e-commerce backend API built with real-world engineering practices, designed under real constraints and trade-offs.**
 
 [![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.121-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)](https://postgresql.org)
 [![Redis](https://img.shields.io/badge/Redis-DC382D?logo=redis&logoColor=white)](https://redis.io)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?logo=sqlalchemy&logoColor=white)](https://sqlalchemy.org)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](https://docker.com)
 [![CI](https://github.com/anasmohamed05221/E-Commerce/actions/workflows/ci.yml/badge.svg)](https://github.com/anasmohamed05221/E-Commerce/actions)
 
 </div>
@@ -22,8 +23,6 @@
 | **API** | https://ecommerce-api-25zx.onrender.com |
 | **Docs** | https://ecommerce-api-25zx.onrender.com/docs |
 | **Health** | https://ecommerce-api-25zx.onrender.com/health |
-
-> Free tier instances spin down after inactivity — first request may take ~30 seconds to wake up.
 
 ---
 

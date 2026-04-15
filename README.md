@@ -24,6 +24,8 @@
 | **Docs** | https://ecommerce-api-25zx.onrender.com/docs |
 | **Health** | https://ecommerce-api-25zx.onrender.com/health |
 
+> Free tier instances spin down after inactivity — first request may take ~30 seconds to wake up.
+
 ---
 
 The system was built intentionally and shaped iteratively as complexity grew, converging into a clean, layered architecture that keeps it maintainable, debuggable, and scalable. It was not built as a tutorial, but to deal with real production backend challenges, such as race conditions, atomic transactions, security, data integrity, caching, and effective testing.

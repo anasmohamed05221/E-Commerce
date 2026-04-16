@@ -97,7 +97,7 @@ Products, orders, and admin views all return `{ items, total, limit, offset }`. 
 Every request is logged as JSON with a unique request ID, status code, duration, and client IP. Production logs go to stdout only (12-Factor App); development logs go to rotating files.
 
 **🧪 The test suite is engineered, not just functional.**
-412 tests across unit, integration, and API layers — running in ~12s. Each test runs in a savepoint that rolls back on completion (no DDL overhead per test). Parallel execution via `pytest-xdist` with worker-scoped fixtures to prevent unique-constraint collisions. No bcrypt cost per test — passwords pre-hashed once at module load. Before optimization: 194 tests in ~70s. After: 412 tests in ~12s.
+412 tests across unit, integration, and API layers, running in ~12s. Each test runs in a savepoint that rolls back on completion (no DDL overhead per test). Parallel execution via `pytest-xdist` with worker-scoped fixtures to prevent unique-constraint collisions. No bcrypt cost per test, passwords pre-hashed once at module load. Before optimization: 194 tests in ~70s. After: 412 tests in ~12s.
 
 ---
 

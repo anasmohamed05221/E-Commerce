@@ -18,7 +18,7 @@ from middleware.rate_limiter import limiter
 from core.logging_config import setup_logging, get_logger
 from middleware import RequestIDMiddleware, get_request_id
 from core.config import settings
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse
 from utils.deps import db_dependency
 from sqlalchemy import text
 
@@ -112,12 +112,6 @@ async def log_requests(request: Request, call_next):
 # Add request ID middleware
 app.add_middleware(RequestIDMiddleware)
 
-
-
-# loader.io verification
-@app.get("/loaderio-21d7bc39e22f75b511b5e9e9db0f7e6e")
-def loaderio_verify():
-    return PlainTextResponse("loaderio-21d7bc39e22f75b511b5e9e9db0f7e6e")
 
 
 # Health check

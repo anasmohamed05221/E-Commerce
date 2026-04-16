@@ -115,9 +115,9 @@ app.add_middleware(RequestIDMiddleware)
 
 
 # loader.io verification
-@app.get("/loaderio-572284bcc5f198bbae4a73b9bf7f9d2d")
+@app.get("/loaderio-21d7bc39e22f75b511b5e9e9db0f7e6e")
 def loaderio_verify():
-    return PlainTextResponse("loaderio-572284bcc5f198bbae4a73b9bf7f9d2d")
+    return PlainTextResponse("loaderio-21d7bc39e22f75b511b5e9e9db0f7e6e")
 
 
 # Health check

@@ -12,7 +12,7 @@ class CreateUserRequest(BaseModel):
     first_name: str = Field(min_length=1, max_length=50)
     last_name: str = Field(min_length=1, max_length=50)
     password: str 
-    phone_number: str
+    phone_number: str = Field(examples=["+20xxxxxxxxxx"])
     
     @field_validator('password')
     @classmethod

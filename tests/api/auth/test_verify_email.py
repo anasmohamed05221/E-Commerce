@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from models.users import User
 from datetime import datetime, timedelta, UTC
 
@@ -15,7 +16,7 @@ async def test_verify_email_success(client, session):
     """Test email verification happy path"""
 
     await register_user(client, "newuser@example.com")
-    user = session.query(User).filter(User.email == "newuser@example.com").first()
+    user = await session.scalar(select(User).where(User.email == "newuser@example.com"))
 
     response = await client.post("/auth/verify", json={
         "email": "newuser@example.com",
@@ -25,7 +26,7 @@ async def test_verify_email_success(client, session):
     assert response.status_code == 200
     assert "verified successfully" in response.json()["message"].lower()
     
-    session.refresh(user)
+    await session.refresh(user)
     assert user.is_verified is True
     assert user.verification_code is None
 
@@ -35,7 +36,7 @@ async def test_verify_email_invalid_code(client, session):
     """Test verification with invalid code fails"""
 
     await register_user(client, "invalid@example.com")
-    user = session.query(User).filter(User.email == "invalid@example.com").first()
+    user = await session.scalar(select(User).where(User.email == "invalid@example.com"))
 
     response = await client.post("/auth/verify", json={
         "email": "invalid@example.com",
@@ -51,9 +52,9 @@ async def test_verify_email_expired_code(client, session):
     """Test verification with expired code fails"""
 
     await register_user(client, "expired@example.com")
-    user = session.query(User).filter(User.email == "expired@example.com").first()
+    user = await session.scalar(select(User).where(User.email == "expired@example.com"))
     user.verification_code_expires_at = datetime.now(UTC) - timedelta(seconds=1)
-    session.commit()
+    await session.commit()
 
     response = await client.post("/auth/verify", json={
         "email": "expired@example.com",
@@ -69,10 +70,10 @@ async def test_verify_email_already_verified(client, session):
     """Test verifying an already verified email fails."""
 
     await register_user(client, "verified@example.com")
-    user = session.query(User).filter(User.email == "verified@example.com").first()
+    user = await session.scalar(select(User).where(User.email == "verified@example.com"))
     assert user is not None 
     user.is_verified = True
-    session.commit()
+    await session.commit()
 
     response = await client.post("/auth/verify", json={
         "email": "verified@example.com",

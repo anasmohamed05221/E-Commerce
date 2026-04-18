@@ -1,7 +1,7 @@
 import pytest
 
 
-# ─── Authentication (401) ────────────────────────────────────────────────────
+# --- Authentication (401) ---
 
 
 @pytest.mark.asyncio
@@ -25,7 +25,7 @@ async def test_cancel_order_requires_auth(client):
     assert response.status_code == 401
 
 
-# ─── Authorization (403) ─────────────────────────────────────────────────────
+# --- Authorization (403) ---
 
 
 @pytest.mark.asyncio
@@ -41,7 +41,7 @@ async def test_get_all_orders_forbidden_for_customer(client, user_token):
 @pytest.mark.asyncio
 async def test_update_order_status_forbidden_for_customer(client, user_token, order_factory):
     """Customer role is rejected with 403."""
-    order = order_factory()
+    order = await order_factory()
     response = await client.patch(
         f"/admin/orders/{order.id}/status",
         json={"status": "confirmed"},
@@ -53,7 +53,7 @@ async def test_update_order_status_forbidden_for_customer(client, user_token, or
 @pytest.mark.asyncio
 async def test_cancel_order_forbidden_for_customer(client, user_token, order_factory):
     """Customer role is rejected with 403."""
-    order = order_factory()
+    order = await order_factory()
     response = await client.post(
         f"/admin/orders/{order.id}/cancel",
         headers={"Authorization": f"Bearer {user_token}"}

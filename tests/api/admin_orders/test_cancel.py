@@ -5,9 +5,9 @@ from models.enums import OrderStatus
 
 @pytest.mark.asyncio
 async def test_admin_cancel_order_success(client, admin_token, session, order_factory):
-    """Admin cancels a CONFIRMED order — returns AdminOrderOut with cancelled status."""
-    order = order_factory()
-    OrderService.update_order_status(session, OrderStatus.CONFIRMED, order.id)
+    """Admin cancels a CONFIRMED order -- returns AdminOrderOut with cancelled status."""
+    order = await order_factory()
+    await OrderService.update_order_status(session, OrderStatus.CONFIRMED, order.id)
 
     response = await client.post(
         f"/admin/orders/{order.id}/cancel",
@@ -34,10 +34,10 @@ async def test_admin_cancel_order_not_found(client, admin_token):
 @pytest.mark.asyncio
 async def test_admin_cancel_order_completed(client, admin_token, session, order_factory):
     """Returns 409 when the order is already COMPLETED."""
-    order = order_factory()
-    OrderService.update_order_status(session, OrderStatus.CONFIRMED, order.id)
-    OrderService.update_order_status(session, OrderStatus.SHIPPED, order.id)
-    OrderService.update_order_status(session, OrderStatus.COMPLETED, order.id)
+    order = await order_factory()
+    await OrderService.update_order_status(session, OrderStatus.CONFIRMED, order.id)
+    await OrderService.update_order_status(session, OrderStatus.SHIPPED, order.id)
+    await OrderService.update_order_status(session, OrderStatus.COMPLETED, order.id)
 
     response = await client.post(
         f"/admin/orders/{order.id}/cancel",

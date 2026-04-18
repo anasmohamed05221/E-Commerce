@@ -1,13 +1,13 @@
 import pytest
+from sqlalchemy import select
 from models.users import User
 from schemas.auth import CreateUserRequest
 from services.auth import AuthService
 from fastapi import BackgroundTasks
 
 
-def test_get_user_by_email(session):
+async def test_get_user_by_email(session):
     """Test retrieving a user by email."""
-
     user_data = CreateUserRequest(
         email="find@example.com",
         first_name="Find",
@@ -16,9 +16,9 @@ def test_get_user_by_email(session):
         phone_number="+201234567890"
     )
     bg = BackgroundTasks()
-    AuthService.create_user(user_data, session, bg)
+    await AuthService.create_user(user_data, session, bg)
 
-    found_user = session.query(User).filter(User.email == "find@example.com").first()
+    found_user = await session.scalar(select(User).where(User.email == "find@example.com"))
 
     assert found_user is not None
     assert found_user.email == "find@example.com"
@@ -26,9 +26,8 @@ def test_get_user_by_email(session):
     assert found_user.last_name == "Me"
 
 
-def test_deactivate_user(session):
+async def test_deactivate_user(session):
     """Test deactivating a user account."""
-    # Create user
     user_data = CreateUserRequest(
         email="deactivate@example.com",
         first_name="Test",
@@ -37,15 +36,13 @@ def test_deactivate_user(session):
         phone_number="+201111111111"
     )
     bg = BackgroundTasks()
-    created_user = AuthService.create_user(user_data, session, bg)
+    created_user = await AuthService.create_user(user_data, session, bg)
 
-    # Deactivate
     created_user.is_active = False
-    session.commit()
+    await session.commit()
 
-    # Verify
-    db_user = session.query(User).filter(User.id == created_user.id).first()
+    db_user = await session.scalar(select(User).where(User.id == created_user.id))
     assert db_user.is_active is False
 
-    searched = AuthService.get_active_user_by_id(session, db_user.id)
-    assert  searched is None
+    searched = await AuthService.get_active_user_by_id(session, db_user.id)
+    assert searched is None

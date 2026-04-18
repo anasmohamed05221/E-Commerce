@@ -1,13 +1,13 @@
 import pytest
+from sqlalchemy import select
 from models.users import User
 from schemas.auth import CreateUserRequest
 from services.auth import AuthService
 from fastapi import BackgroundTasks, HTTPException
 
 
-def test_create_user(session):
+async def test_create_user(session):
     """Test creating a user in the database."""
-
     user_data = CreateUserRequest(
         email="test@example.com",
         first_name="Test",
@@ -15,24 +15,21 @@ def test_create_user(session):
         password="SecurePass123!",
         phone_number="+201111111111"
     )
-
     bg = BackgroundTasks()
-
-    created_user = AuthService.create_user(user_data, session, bg)
+    created_user = await AuthService.create_user(user_data, session, bg)
 
     assert created_user.id is not None
     assert created_user.email == "test@example.com"
     assert created_user.first_name == "Test"
     assert created_user.is_verified is False
 
-    db_user = session.query(User).filter(User.email == "test@example.com").first()
+    db_user = await session.scalar(select(User).where(User.email == "test@example.com"))
     assert db_user is not None
     assert db_user.email == created_user.email
 
 
-def test_create_user_duplicate_email(session):
+async def test_create_user_duplicate_email(session):
     """Test that duplicate email registration fails."""
-
     user_data = CreateUserRequest(
         email="duplicate@example.com",
         first_name="First",
@@ -41,11 +38,10 @@ def test_create_user_duplicate_email(session):
         phone_number="+201111111111"
     )
     bg = BackgroundTasks()
-
-    AuthService.create_user(user_data, session, bg)
+    await AuthService.create_user(user_data, session, bg)
 
     with pytest.raises(HTTPException) as exc_info:
-        AuthService.create_user(user_data, session, bg)
+        await AuthService.create_user(user_data, session, bg)
 
     assert exc_info.value.status_code == 400
     assert "already registered" in exc_info.value.detail.lower()

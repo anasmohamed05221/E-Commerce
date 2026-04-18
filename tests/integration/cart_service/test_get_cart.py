@@ -3,19 +3,19 @@ from decimal import Decimal
 from services.cart import CartService
 
 
-def test_get_cart_empty(session, verified_user):
+async def test_get_cart_empty(session, verified_user):
     """Empty cart returns an empty list."""
-    cart_items = CartService.get_cart(db=session, user_id=verified_user.id)
+    cart_items = await CartService.get_cart(db=session, user_id=verified_user.id)
 
     assert cart_items == []
 
 
-def test_get_cart_returns_items_with_product_loaded(session, verified_user, product_factory):
+async def test_get_cart_returns_items_with_product_loaded(session, verified_user, product_factory):
     """Cart items are returned with the product relationship eagerly loaded."""
-    product = product_factory()
-    CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=2)
+    product = await product_factory()
+    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=2)
 
-    cart_items = CartService.get_cart(db=session, user_id=verified_user.id)
+    cart_items = await CartService.get_cart(db=session, user_id=verified_user.id)
 
     assert len(cart_items) == 1
     assert cart_items[0].product_id == product.id
@@ -31,14 +31,14 @@ def test_calculate_total_price_empty_cart():
     assert total == Decimal("0")
 
 
-def test_calculate_total_price_multiple_items(session, verified_user, product_factory):
+async def test_calculate_total_price_multiple_items(session, verified_user, product_factory):
     """Total price sums (price * quantity) across all items."""
-    p1 = product_factory(name="Laptop", price=1000.00, stock=10)
-    p2 = product_factory(name="Mouse", price=50.00, stock=20)
-    CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=p1.id, quantity=2)
-    CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=p2.id, quantity=3)
+    p1 = await product_factory(name="Laptop", price=1000.00, stock=10)
+    p2 = await product_factory(name="Mouse", price=50.00, stock=20)
+    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=p1.id, quantity=2)
+    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=p2.id, quantity=3)
 
-    cart_items = CartService.get_cart(db=session, user_id=verified_user.id)
+    cart_items = await CartService.get_cart(db=session, user_id=verified_user.id)
     total = CartService.calculate_cart_total_price(cart_items)
 
     # (1000 * 2) + (50 * 3) = 2150

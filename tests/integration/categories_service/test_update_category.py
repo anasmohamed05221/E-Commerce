@@ -41,7 +41,7 @@ async def test_update_category_same_name_no_conflict(session, test_category):
 async def test_update_category_name_taken_by_other_raises_409(session, test_category):
     other = Category(name="Clothing", description=None)
     session.add(other)
-    session.commit()
+    await session.commit()
 
     with pytest.raises(HTTPException) as exc:
         await CategoryService.update_category(

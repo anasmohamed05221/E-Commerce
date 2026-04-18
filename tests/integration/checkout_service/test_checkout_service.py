@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy import select, func
 from fastapi import HTTPException
 from services.checkout import CheckoutService
 from services.cart import CartService
@@ -7,12 +8,13 @@ from models.inventory_changes import InventoryChange
 from models.enums import PaymentMethod
 
 
-def test_checkout_success(session, verified_user, product_factory, test_address):
+async def test_checkout_success(session, verified_user, product_factory, test_address):
     """Full checkout flow creates order, decrements stock, logs inventory change, and clears cart."""
-    product = product_factory(name="Laptop", price=1000.00, stock=10)
-    CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=2)
+    product = await product_factory(name="Laptop", price=1000.00, stock=10)
+    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=2)
 
-    order = CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
+    order = await CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
+
     # Order created with correct total
     assert order is not None
     assert order.user_id == verified_user.id
@@ -26,67 +28,69 @@ def test_checkout_success(session, verified_user, product_factory, test_address)
     assert float(items[0].price_at_time) == 1000.00
     assert float(items[0].subtotal) == 2000.0
     # Stock decremented
-    session.refresh(product)
+    await session.refresh(product)
     assert product.stock == 8
     # Inventory change recorded
-    inv_change = session.query(InventoryChange).filter(InventoryChange.product_id==product.id).first()
+    inv_change = await session.scalar(select(InventoryChange).where(InventoryChange.product_id == product.id))
     assert inv_change is not None
     assert inv_change.change_amount == -2
     assert inv_change.reason == "sale"
     # Cart cleared
-    cart_items = session.query(CartItem).filter(CartItem.user_id==verified_user.id).all()
-    assert len(cart_items) == 0
+    cart_count = await session.scalar(
+        select(func.count()).select_from(CartItem).where(CartItem.user_id == verified_user.id)
+    )
+    assert cart_count == 0
 
 
-def test_checkout_cart_empty(session, verified_user, test_address):
+async def test_checkout_cart_empty(session, verified_user, test_address):
     """Checkout with no cart items raises 400."""
     with pytest.raises(HTTPException) as exc:
-        order = CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
+        await CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
     assert exc.value.status_code == 400
     assert exc.value.detail == "Can't checkout while cart is empty"
 
 
-def test_checkout_stock_insufficient(session, verified_user, product_factory, test_address):
+async def test_checkout_stock_insufficient(session, verified_user, product_factory, test_address):
     """Checkout raises 409 when a cart item quantity exceeds current stock."""
-    product = product_factory(name="Laptop", price=1000.00, stock=10)
-    CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=2)
+    product = await product_factory(name="Laptop", price=1000.00, stock=10)
+    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=2)
     product.stock = 1
-    session.commit()
+    await session.commit()
+
     with pytest.raises(HTTPException) as exc:
-        order = CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
+        await CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
     assert exc.value.status_code == 409
     assert exc.value.detail["message"] == "Not enough stock available"
 
 
-def test_checkout_multiple_cart_items(session, verified_user, product_factory, test_address):
+async def test_checkout_multiple_cart_items(session, verified_user, product_factory, test_address):
     """Checkout with multiple products creates all order items and clears the full cart."""
-    product1 = product_factory(name="Laptop", price=1000.00, stock=10)
-    product2 = product_factory(name="Monitor", price=500.00, stock=7)
-    product3 = product_factory(name="Keyboard", price=60.00, stock=5)
+    product1 = await product_factory(name="Laptop", price=1000.00, stock=10)
+    product2 = await product_factory(name="Monitor", price=500.00, stock=7)
+    product3 = await product_factory(name="Keyboard", price=60.00, stock=5)
 
-    CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product1.id, quantity=2)
-    CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product2.id, quantity=1)
-    CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product3.id, quantity=3)
+    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product1.id, quantity=2)
+    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product2.id, quantity=1)
+    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product3.id, quantity=3)
 
-    order = CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
-    # Order created with correct total
+    order = await CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
+
     assert order is not None
     assert order.user_id == verified_user.id
     assert float(order.total_amount) == 2680.00
     assert order.status == "pending"
-    # Order items created
     assert len(order.items) == 3
     # Stock decremented for all 3 products
-    session.refresh(product1)
-    session.refresh(product2)
-    session.refresh(product3)
+    await session.refresh(product1)
+    await session.refresh(product2)
+    await session.refresh(product3)
     assert product1.stock == 8
     assert product2.stock == 6
     assert product3.stock == 2
     # Inventory change recorded for each product
-    inv_change1 = session.query(InventoryChange).filter(InventoryChange.product_id==product1.id).first()
-    inv_change2 = session.query(InventoryChange).filter(InventoryChange.product_id==product2.id).first()
-    inv_change3 = session.query(InventoryChange).filter(InventoryChange.product_id==product3.id).first()
+    inv_change1 = await session.scalar(select(InventoryChange).where(InventoryChange.product_id == product1.id))
+    inv_change2 = await session.scalar(select(InventoryChange).where(InventoryChange.product_id == product2.id))
+    inv_change3 = await session.scalar(select(InventoryChange).where(InventoryChange.product_id == product3.id))
     assert inv_change1 is not None
     assert inv_change1.change_amount == -2
     assert inv_change1.reason == "sale"
@@ -96,25 +100,24 @@ def test_checkout_multiple_cart_items(session, verified_user, product_factory, t
     assert inv_change3 is not None
     assert inv_change3.change_amount == -3
     assert inv_change3.reason == "sale"
-
     # Cart cleared
-    cart_items = session.query(CartItem).filter(CartItem.user_id==verified_user.id).all()
-    assert len(cart_items) == 0
+    cart_count = await session.scalar(
+        select(func.count()).select_from(CartItem).where(CartItem.user_id == verified_user.id)
+    )
+    assert cart_count == 0
 
 
-def test_checkout_stock_equivalent(session, verified_user, product_factory, test_address):
+async def test_checkout_stock_equivalent(session, verified_user, product_factory, test_address):
     """Checkout succeeds when quantity exactly matches available stock, leaving stock at zero."""
-    product = product_factory(name="Laptop", price=1000.00, stock=10)
+    product = await product_factory(name="Laptop", price=1000.00, stock=10)
+    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=10)
 
-    CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=10)
+    order = await CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
 
-    order = CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
-
-    # Order created correctly
     assert order is not None
     assert order.user_id == verified_user.id
     assert float(order.total_amount) == 10000.00
     assert order.status == "pending"
     # Stock hits exactly zero
-    session.refresh(product)
+    await session.refresh(product)
     assert product.stock == 0

@@ -6,23 +6,23 @@ from schemas.addresses import AddressCreate
 from utils.hashing import get_password_hash
 
 
-def test_get_address_success(session, verified_user, test_address):
+async def test_get_address_success(session, verified_user, test_address):
     """Returns the address when ID and user match."""
-    address = AddressService.get_address(session, verified_user.id, test_address.id)
+    address = await AddressService.get_address(session, verified_user.id, test_address.id)
 
     assert address.id == test_address.id
     assert address.user_id == verified_user.id
 
 
-def test_get_address_not_found(session, verified_user):
+async def test_get_address_not_found(session, verified_user):
     """Raises 404 for a non-existent address ID."""
     with pytest.raises(HTTPException) as exc:
-        AddressService.get_address(session, verified_user.id, 99999)
+        await AddressService.get_address(session, verified_user.id, 99999)
 
     assert exc.value.status_code == 404
 
 
-def test_get_address_wrong_owner(session, verified_user):
+async def test_get_address_wrong_owner(session, verified_user):
     """Raises 404 when the address belongs to a different user."""
     other_user = User(
         email="other@example.com",
@@ -34,13 +34,13 @@ def test_get_address_wrong_owner(session, verified_user):
         is_active=True
     )
     session.add(other_user)
-    session.commit()
-    session.refresh(other_user)
+    await session.commit()
+    await session.refresh(other_user)
 
     data = AddressCreate(street="1 Other St", city="Alexandria", country="Egypt", postal_code="21500")
-    other_address = AddressService.create_address(session, other_user.id, data)
+    other_address = await AddressService.create_address(session, other_user.id, data)
 
     with pytest.raises(HTTPException) as exc:
-        AddressService.get_address(session, verified_user.id, other_address.id)
+        await AddressService.get_address(session, verified_user.id, other_address.id)
 
     assert exc.value.status_code == 404

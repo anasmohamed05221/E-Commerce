@@ -75,7 +75,7 @@ async def test_login_unverified_email(client, session):
         is_active=True
     )
     session.add(unverified_user)
-    session.commit()
+    await session.commit()
     
     response = await client.post("/auth/token", data={
         "username": "unverified@example.com",
@@ -98,7 +98,7 @@ async def test_login_inactive_user(client, session):
         is_active=False
     )
     session.add(inactive_user)
-    session.commit()
+    await session.commit()
     
     response = await client.post("/auth/token", data={
         "username": "inactive@example.com",

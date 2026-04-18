@@ -1,32 +1,37 @@
 import pytest
+from sqlalchemy import select, func
 from models.cart_items import CartItem
 from models.users import User
 from services.cart import CartService
 from utils.hashing import get_password_hash
 
 
-def test_clear_cart_removes_all_items(session, verified_user, product_factory):
+async def test_clear_cart_removes_all_items(session, verified_user, product_factory):
     """All cart items for the user are deleted after clear_cart."""
-    p1 = product_factory(name="Laptop", stock=10)
-    p2 = product_factory(name="Mouse", price=50.00, stock=5)
-    CartService.add_to_cart(session, verified_user.id, p1.id, 1)
-    CartService.add_to_cart(session, verified_user.id, p2.id, 2)
+    p1 = await product_factory(name="Laptop", stock=10)
+    p2 = await product_factory(name="Mouse", price=50.00, stock=5)
+    await CartService.add_to_cart(session, verified_user.id, p1.id, 1)
+    await CartService.add_to_cart(session, verified_user.id, p2.id, 2)
 
-    CartService.clear_cart(session, verified_user.id)
+    await CartService.clear_cart(session, verified_user.id)
 
-    count = session.query(CartItem).filter(CartItem.user_id == verified_user.id).count()
+    count = await session.scalar(
+        select(func.count()).select_from(CartItem).where(CartItem.user_id == verified_user.id)
+    )
     assert count == 0
 
 
-def test_clear_cart_empty_cart_is_idempotent(session, verified_user):
+async def test_clear_cart_empty_cart_is_idempotent(session, verified_user):
     """Clearing an already-empty cart succeeds without raising any error."""
-    CartService.clear_cart(session, verified_user.id)
+    await CartService.clear_cart(session, verified_user.id)
 
-    count = session.query(CartItem).filter(CartItem.user_id == verified_user.id).count()
+    count = await session.scalar(
+        select(func.count()).select_from(CartItem).where(CartItem.user_id == verified_user.id)
+    )
     assert count == 0
 
 
-def test_clear_cart_only_removes_own_items(session, verified_user, product_factory):
+async def test_clear_cart_only_removes_own_items(session, verified_user, product_factory):
     """Only the requesting user's cart items are deleted; other users' items are unaffected."""
     other_user = User(
         email="other@example.com",
@@ -38,16 +43,20 @@ def test_clear_cart_only_removes_own_items(session, verified_user, product_facto
         is_active=True
     )
     session.add(other_user)
-    session.commit()
-    session.refresh(other_user)
+    await session.commit()
+    await session.refresh(other_user)
 
-    product = product_factory(stock=10)
-    CartService.add_to_cart(session, verified_user.id, product.id, 1)
-    CartService.add_to_cart(session, other_user.id, product.id, 1)
+    product = await product_factory(stock=10)
+    await CartService.add_to_cart(session, verified_user.id, product.id, 1)
+    await CartService.add_to_cart(session, other_user.id, product.id, 1)
 
-    CartService.clear_cart(session, verified_user.id)
+    await CartService.clear_cart(session, verified_user.id)
 
-    own_count = session.query(CartItem).filter(CartItem.user_id == verified_user.id).count()
-    other_count = session.query(CartItem).filter(CartItem.user_id == other_user.id).count()
+    own_count = await session.scalar(
+        select(func.count()).select_from(CartItem).where(CartItem.user_id == verified_user.id)
+    )
+    other_count = await session.scalar(
+        select(func.count()).select_from(CartItem).where(CartItem.user_id == other_user.id)
+    )
     assert own_count == 0
     assert other_count == 1

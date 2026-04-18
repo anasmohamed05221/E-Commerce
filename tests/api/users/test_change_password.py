@@ -3,14 +3,14 @@ from utils.hashing import verify_password
 from services.users import UserService
 
 
-def _setup_pending_change(session, user) -> str:
+async def _setup_pending_change(session, user) -> str:
     """Put user into pending password change state and return the RAW token."""
     from unittest.mock import patch
     import secrets as _secrets
     raw_token = _secrets.token_urlsafe(32)
     with patch("services.users.secrets.token_urlsafe", return_value=raw_token):
         bg = BackgroundTasks()
-        UserService.request_password_change(session, user, "TestPassword123!", "NewPass123!", bg)
+        await UserService.request_password_change(session, user, "TestPassword123!", "NewPass123!", bg)
     return raw_token
 
 
@@ -37,7 +37,7 @@ async def test_change_password_success(client, verified_user, session):
     assert "confirmation email" in response.json()["message"].lower() or "check your email" in response.json()["message"].lower()
     
     # Verify pending password change is stored
-    session.refresh(verified_user)
+    await session.refresh(verified_user)
     assert verified_user.pending_password_hash is not None
     assert verified_user.password_change_token is not None
     assert verified_user.password_change_expires_at is not None
@@ -123,7 +123,7 @@ async def test_change_password_invalid_token(client):
 
 async def test_confirm_password_change_success(client, verified_user, session):
     """Valid token in request body applies the pending password change."""
-    token = _setup_pending_change(session, verified_user)
+    token = await _setup_pending_change(session, verified_user)
 
     response = await client.post("/users/confirm-password-change", json={"token": token})
 
@@ -142,7 +142,7 @@ async def test_confirm_password_change_invalid_token(client):
 
 async def test_deny_password_change_success(client, verified_user, session):
     """Valid token in request body cancels the pending password change."""
-    token = _setup_pending_change(session, verified_user)
+    token = await _setup_pending_change(session, verified_user)
 
     response = await client.post("/users/deny-password-change", json={"token": token})
 

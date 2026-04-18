@@ -4,7 +4,7 @@ import pytest
 @pytest.mark.asyncio
 async def test_add_to_cart_success(client, user_token, session, product_factory):
     """Adding a valid product returns 201 with cart item details."""
-    product = product_factory()
+    product = await product_factory()
 
     response = await client.post("/cart/", json={"product_id": product.id, "quantity": 3},
                                  headers={"Authorization": f"Bearer {user_token}"})
@@ -18,7 +18,7 @@ async def test_add_to_cart_success(client, user_token, session, product_factory)
 @pytest.mark.asyncio
 async def test_add_to_cart_increments_existing(client, user_token, session, product_factory):
     """Adding the same product twice increments quantity."""
-    product = product_factory(stock=10)
+    product = await product_factory(stock=10)
 
     await client.post("/cart/", json={"product_id": product.id, "quantity": 3},
                       headers={"Authorization": f"Bearer {user_token}"})
@@ -41,7 +41,7 @@ async def test_add_to_cart_product_not_found(client, user_token, session):
 @pytest.mark.asyncio
 async def test_add_to_cart_exceeds_stock(client, user_token, session, product_factory):
     """Adding quantity beyond stock returns 409."""
-    product = product_factory(stock=5)
+    product = await product_factory(stock=5)
 
     response = await client.post("/cart/", json={"product_id": product.id, "quantity": 6},
                                  headers={"Authorization": f"Bearer {user_token}"})
@@ -53,7 +53,7 @@ async def test_add_to_cart_exceeds_stock(client, user_token, session, product_fa
 @pytest.mark.asyncio
 async def test_add_to_cart_invalid_quantity(client, user_token, session, product_factory):
     """Quantity below 1 or above 100 is rejected by Pydantic validation."""
-    product = product_factory()
+    product = await product_factory()
 
     response = await client.post("/cart/", json={"product_id": product.id, "quantity": 0},
                                  headers={"Authorization": f"Bearer {user_token}"})

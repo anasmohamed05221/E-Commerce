@@ -46,8 +46,8 @@ async def test_delete_address_wrong_owner(client, user_token, session):
         is_active=True
     )
     session.add(other_user)
-    session.commit()
-    session.refresh(other_user)
+    await session.commit()
+    await session.refresh(other_user)
 
     other_address = Address(
         user_id=other_user.id,
@@ -58,7 +58,7 @@ async def test_delete_address_wrong_owner(client, user_token, session):
         is_default=True
     )
     session.add(other_address)
-    session.commit()
+    await session.commit()
 
     response = await client.delete(
         f"/addresses/{other_address.id}",

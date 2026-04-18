@@ -5,8 +5,8 @@ from models.enums import OrderStatus
 
 @pytest.mark.asyncio
 async def test_get_all_orders_success(client, admin_token, order_factory):
-    """Returns 200 with AdminOrderListOut shape — items include user_id."""
-    order_factory()
+    """Returns 200 with AdminOrderListOut shape -- items include user_id."""
+    await order_factory()
 
     response = await client.get(
         "/admin/orders/",
@@ -45,10 +45,10 @@ async def test_get_all_orders_empty(client, admin_token):
 @pytest.mark.asyncio
 async def test_get_all_orders_status_filter(client, admin_token, session, order_factory, verified_user):
     """?status=cancelled returns only cancelled orders."""
-    order = order_factory()
-    order_factory()  # stays PENDING
+    order = await order_factory()
+    await order_factory()  # stays PENDING
 
-    OrderService.cancel_order(session, verified_user.id, order.id)
+    await OrderService.cancel_order(session, verified_user.id, order.id)
 
     response = await client.get(
         "/admin/orders/?status=cancelled",
@@ -64,9 +64,9 @@ async def test_get_all_orders_status_filter(client, admin_token, session, order_
 @pytest.mark.asyncio
 async def test_get_all_orders_pagination(client, admin_token, order_factory):
     """limit and offset control the page; total reflects the full count."""
-    order_factory()
-    order_factory()
-    order_factory()
+    await order_factory()
+    await order_factory()
+    await order_factory()
 
     response = await client.get(
         "/admin/orders/?limit=2&offset=1",

@@ -1,5 +1,4 @@
 import pytest
-import time
 from fastapi import HTTPException
 from services.orders import OrderService
 from services.cart import CartService
@@ -10,15 +9,15 @@ from models.enums import OrderStatus, PaymentMethod
 from utils.hashing import get_password_hash
 
 
-def test_get_all_orders_empty(session):
+async def test_get_all_orders_empty(session):
     """Returns empty list and zero total when no orders exist."""
-    orders, total = OrderService.get_all_orders(session, limit=10, offset=0)
+    orders, total = await OrderService.get_all_orders(session, limit=10, offset=0)
 
     assert orders == []
     assert total == 0
 
 
-def test_get_all_orders_returns_all_users_orders(session, verified_user, product_factory):
+async def test_get_all_orders_returns_all_users_orders(session, verified_user, product_factory):
     """Returns orders from all users, not scoped to a single user."""
     other_user = User(
         email="other_admin_test@example.com",
@@ -30,8 +29,8 @@ def test_get_all_orders_returns_all_users_orders(session, verified_user, product
         is_active=True
     )
     session.add(other_user)
-    session.commit()
-    session.refresh(other_user)
+    await session.commit()
+    await session.refresh(other_user)
 
     # Address for verified_user
     addr1 = Address(user_id=verified_user.id, street="1 St", city="Cairo", country="Egypt", postal_code="11511", is_default=True)
@@ -39,19 +38,19 @@ def test_get_all_orders_returns_all_users_orders(session, verified_user, product
     # Address for other_user
     addr2 = Address(user_id=other_user.id, street="2 St", city="Cairo", country="Egypt", postal_code="11511", is_default=True)
     session.add(addr2)
-    session.commit()
+    await session.commit()
 
     # Order for verified_user
-    p1 = product_factory(name="Laptop", stock=10)
-    CartService.add_to_cart(session, verified_user.id, p1.id, 1)
-    CheckoutService.checkout(session, verified_user.id, addr1.id, PaymentMethod.COD)
+    p1 = await product_factory(name="Laptop", stock=10)
+    await CartService.add_to_cart(session, verified_user.id, p1.id, 1)
+    await CheckoutService.checkout(session, verified_user.id, addr1.id, PaymentMethod.COD)
 
     # Order for other_user
-    p2 = product_factory(name="Mouse", stock=10)
-    CartService.add_to_cart(session, other_user.id, p2.id, 1)
-    CheckoutService.checkout(session, other_user.id, addr2.id, PaymentMethod.COD)
+    p2 = await product_factory(name="Mouse", stock=10)
+    await CartService.add_to_cart(session, other_user.id, p2.id, 1)
+    await CheckoutService.checkout(session, other_user.id, addr2.id, PaymentMethod.COD)
 
-    orders, total = OrderService.get_all_orders(session, limit=10, offset=0)
+    orders, total = await OrderService.get_all_orders(session, limit=10, offset=0)
 
     assert total == 2
     assert len(orders) == 2
@@ -60,51 +59,51 @@ def test_get_all_orders_returns_all_users_orders(session, verified_user, product
     assert other_user.id in user_ids
 
 
-def test_get_all_orders_pagination(session, verified_user, order_factory):
+async def test_get_all_orders_pagination(session, verified_user, order_factory):
     """Limit and offset control the page; total reflects the full count."""
-    order_factory()
-    order_factory()
-    order_factory()
+    await order_factory()
+    await order_factory()
+    await order_factory()
 
-    orders, total = OrderService.get_all_orders(session, limit=2, offset=0)
+    orders, total = await OrderService.get_all_orders(session, limit=2, offset=0)
 
     assert len(orders) == 2
     assert total == 3
 
-    orders_page2, total2 = OrderService.get_all_orders(session, limit=2, offset=2)
+    orders_page2, total2 = await OrderService.get_all_orders(session, limit=2, offset=2)
 
     assert len(orders_page2) == 1
     assert total2 == 3
 
 
-def test_get_all_orders_status_filter_match(session, verified_user, order_factory):
+async def test_get_all_orders_status_filter_match(session, verified_user, order_factory):
     """Filters orders to only the requested status."""
-    order = order_factory()
-    order_factory()  # second order stays PENDING
+    order = await order_factory()
+    await order_factory()  # second order stays PENDING
 
-    OrderService.cancel_order(session, verified_user.id, order.id)
+    await OrderService.cancel_order(session, verified_user.id, order.id)
 
-    orders, total = OrderService.get_all_orders(session, limit=10, offset=0, status_filter=OrderStatus.CANCELLED)
+    orders, total = await OrderService.get_all_orders(session, limit=10, offset=0, status_filter=OrderStatus.CANCELLED)
 
     assert total == 1
     assert orders[0].status == OrderStatus.CANCELLED
 
 
-def test_get_all_orders_status_filter_no_match(session, verified_user, order_factory):
+async def test_get_all_orders_status_filter_no_match(session, verified_user, order_factory):
     """Returns empty when no orders match the filter."""
-    order_factory()
+    await order_factory()
 
-    orders, total = OrderService.get_all_orders(session, limit=10, offset=0, status_filter=OrderStatus.COMPLETED)
+    orders, total = await OrderService.get_all_orders(session, limit=10, offset=0, status_filter=OrderStatus.COMPLETED)
 
     assert total == 0
     assert orders == []
 
 
-def test_get_all_orders_newest_first(session, verified_user, order_factory):
+async def test_get_all_orders_newest_first(session, verified_user, order_factory):
     """Orders are returned newest first (descending created_at)."""
-    first_order = order_factory()
-    second_order = order_factory()
+    await order_factory()
+    await order_factory()
 
-    orders, _ = OrderService.get_all_orders(session, limit=10, offset=0)
+    orders, _ = await OrderService.get_all_orders(session, limit=10, offset=0)
 
     assert orders[0].created_at >= orders[1].created_at

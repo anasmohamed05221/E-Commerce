@@ -44,7 +44,7 @@ async def test_create_product_forbidden_for_customer(client, user_token, test_ca
 @pytest.mark.asyncio
 async def test_update_product_forbidden_for_customer(client, user_token, product_factory):
     """Customer role is rejected with 403."""
-    product = product_factory()
+    product = await product_factory()
     response = await client.patch(
         f"/admin/products/{product.id}",
         json={"name": "New"},
@@ -56,7 +56,7 @@ async def test_update_product_forbidden_for_customer(client, user_token, product
 @pytest.mark.asyncio
 async def test_delete_product_forbidden_for_customer(client, user_token, product_factory):
     """Customer role is rejected with 403."""
-    product = product_factory()
+    product = await product_factory()
     response = await client.delete(
         f"/admin/products/{product.id}",
         headers={"Authorization": f"Bearer {user_token}"}

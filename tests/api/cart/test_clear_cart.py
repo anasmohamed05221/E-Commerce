@@ -4,7 +4,7 @@ import pytest
 @pytest.mark.asyncio
 async def test_clear_cart_success(client, user_token, product_factory):
     """DELETE /cart returns 204 and the cart is empty afterwards."""
-    product = product_factory()
+    product = await product_factory()
     await client.post(
         "/cart/",
         json={"product_id": product.id, "quantity": 1},

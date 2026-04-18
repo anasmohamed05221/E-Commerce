@@ -1,7 +1,8 @@
 import secrets
 from utils.hashing import hash_token
 from datetime import datetime, timezone, timedelta
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update
 from fastapi import HTTPException, status
 from jose import jwt, JWTError
 from models.refresh_tokens import RefreshToken
@@ -75,7 +76,7 @@ class TokenService:
         return refresh_token, jti, expire
     
     @staticmethod
-    def create_tokens(email: str, user_id: int, role: str, db: Session):
+    async def create_tokens(email: str, user_id: int, role: str, db: AsyncSession):
         """
         Creates access token + refresh token pair.
         Stores refresh token in database.
@@ -105,9 +106,9 @@ class TokenService:
         )
         db.add(db_refresh_token)
         try:
-            db.commit()
+            await db.commit()
         except Exception:
-            db.rollback()
+            await db.rollback()
             raise
 
         return {
@@ -117,7 +118,7 @@ class TokenService:
         }
     
     @staticmethod
-    def refresh_access_token(refresh_token: str, db: Session):
+    async def refresh_access_token(refresh_token: str, db: AsyncSession):
         """
         Validates refresh token and issues new access + refresh tokens.
         Implements token rotation (old token is revoked).
@@ -161,10 +162,10 @@ class TokenService:
             
             # Hash JTI and check database
             token_hash = hash_token(jti)
-            db_token = db.query(RefreshToken).filter(
+            db_token = await db.scalar(select(RefreshToken).where(
                 RefreshToken.token_hash == token_hash,
                 RefreshToken.revoked == False  # noqa: E712
-            ).first()
+            ))
             
             if not db_token:
                 raise HTTPException(
@@ -179,20 +180,20 @@ class TokenService:
                     detail="Token expired"
                 )
             
-            user = db.query(User).filter(User.id == user_id).one_or_none()
+            user = await db.scalar(select(User).where(User.id == user_id))
             if not user.is_active:
                 raise HTTPException(status_code=403, detail="Account is inactive")
 
             # Revoke old token (token rotation)
             db_token.revoked = True
             try:
-                db.commit()
+                await db.commit()
             except Exception:
-                db.rollback()
+                await db.rollback()
                 raise
 
             # Create new token pair
-            return TokenService.create_tokens(email, user_id, role, db)
+            return await TokenService.create_tokens(email, user_id, role, db)
             
         except JWTError:
             raise HTTPException(
@@ -201,7 +202,7 @@ class TokenService:
             )
     
     @staticmethod
-    def revoke_token(refresh_token: str, db: Session):
+    async def revoke_token(refresh_token: str, db: AsyncSession):
         """
         Revokes a refresh token (logout).
         
@@ -220,23 +221,23 @@ class TokenService:
             if jti:
                 token_hash = hash_token(jti)
                 
-                db_token = db.query(RefreshToken).filter(
+                db_token = await db.scalar(select(RefreshToken).where(
                     RefreshToken.token_hash == token_hash
-                ).first()
+                ))
                 
                 if db_token:
                     db_token.revoked = True
                     try:
-                        db.commit()
+                        await db.commit()
                     except Exception:
-                        db.rollback()
+                        await db.rollback()
                         raise
 
         except JWTError:
             pass  # Token already invalid, nothing to revoke
     
     @staticmethod
-    def revoke_all_user_tokens(user_id: int, db: Session):
+    async def revoke_all_user_tokens(user_id: int, db: AsyncSession):
         """
         Revokes all refresh tokens for a user (logout from all devices).
         
@@ -244,12 +245,13 @@ class TokenService:
             user_id: The user's ID
             db: Database session
         """
-        db.query(RefreshToken).filter(
-            RefreshToken.user_id == user_id,
-            RefreshToken.revoked == False  # noqa: E712
-        ).update({"revoked": True})
         try:
-            db.commit()
+            await db.execute(
+                update(RefreshToken)
+                .where(RefreshToken.user_id == user_id, RefreshToken.revoked == False)  # noqa: E712
+                .values(revoked=True)
+            )
+            await db.commit()
         except Exception:
-            db.rollback()
+            await db.rollback()
             raise

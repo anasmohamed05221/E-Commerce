@@ -4,7 +4,7 @@ from utils.hashing import get_password_hash
 
 
 @pytest.fixture
-def test_user(session):
+async def test_user(session):
     """Create a verified user for token tests."""
     user = User(
         email="token_test@example.com",
@@ -16,6 +16,6 @@ def test_user(session):
         is_active=True
     )
     session.add(user)
-    session.commit()
-    session.refresh(user)
+    await session.commit()
+    await session.refresh(user)
     return user

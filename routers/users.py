@@ -16,48 +16,48 @@ router = APIRouter(
 
 @router.get("/me", response_model=UserOut, status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute")
-def get_user_info(request: Request, current_user: active_user_dependency, db: db_dependency):
+async def get_user_info(request: Request, current_user: active_user_dependency, db: db_dependency):
     """Get current user info (protected endpoint)."""
     return current_user
 
 
 @router.patch("/me", response_model=UserOut, status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
-def update_profile(request: Request, db: db_dependency, current_user: active_user_dependency, body: UpdateProfileRequest):
+async def update_profile(request: Request, db: db_dependency, current_user: active_user_dependency, body: UpdateProfileRequest):
     """Partially update user profile (name, phone number)"""
-    updated_user = UserService.update_profile(db, current_user, body)
+    updated_user = await UserService.update_profile(db, current_user, body)
     logger.info("Profile updated successfully", extra={"user_id": current_user.id})
     return updated_user
 
 
 @router.put("/me/password", status_code=status.HTTP_200_OK)
 @limiter.limit("2/minute")
-def change_password_request(request: Request, body: ChangePasswordRequest,
+async def change_password_request(request: Request, body: ChangePasswordRequest,
                                    current_user: active_user_dependency, db: db_dependency, bg: BackgroundTasks):
     """Request password change. Sends confirmation email."""
-    UserService.request_password_change(db, current_user, body.current_password, body.new_password, bg)
+    await UserService.request_password_change(db, current_user, body.current_password, body.new_password, bg)
     return {"message": "Confirmation email sent. Please check your inbox."}
 
 
 @router.post("/confirm-password-change", status_code=status.HTTP_200_OK)
-def confirm_password_change(token_body: PasswordChangeToken, db: db_dependency):
+async def confirm_password_change(token_body: PasswordChangeToken, db: db_dependency):
     """Confirm password change (public endpoint)."""
-    UserService.confirm_password_change(db, token_body.token)
+    await UserService.confirm_password_change(db, token_body.token)
     return {"message": "Password updated successfully. Please login again."}
 
 
 @router.post("/deny-password-change", status_code=status.HTTP_200_OK)
-def deny_password_change(token_body: PasswordChangeToken, db: db_dependency, bg: BackgroundTasks):
+async def deny_password_change(token_body: PasswordChangeToken, db: db_dependency, bg: BackgroundTasks):
     """Deny password change and logout all sessions (public endpoint)."""
-    UserService.deny_password_change(db, token_body.token, bg)
+    await UserService.deny_password_change(db, token_body.token, bg)
     return {"message": "Password change cancelled. All sessions logged out."}
 
 
 @router.delete("/deactivate", status_code=status.HTTP_200_OK)
 @limiter.limit("3/minute")
-def deactivate_user(request: Request, body: DeactivateUserRequest,
+async def deactivate_user(request: Request, body: DeactivateUserRequest,
                            current_user: active_user_dependency, db: db_dependency):
     """Deactivate user account and revoke all sessions (protected endpoint)."""
-    UserService.deactivate_self(db, current_user, body.password)
+    await UserService.deactivate_self(db, current_user, body.password)
     logger.info("User deactivated", extra={"user_id": current_user.id})
     return {"message": "Account deactivated"}

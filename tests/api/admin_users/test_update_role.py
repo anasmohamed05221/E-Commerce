@@ -6,7 +6,7 @@ from utils.hashing import get_password_hash
 HASHED = get_password_hash("TestPassword123!")
 
 
-def _make_admin(session, email):
+async def _make_admin(session, email):
     user = User(
         email=email,
         first_name="Test",
@@ -17,8 +17,8 @@ def _make_admin(session, email):
         is_verified=True,
     )
     session.add(user)
-    session.commit()
-    session.refresh(user)
+    await session.commit()
+    await session.refresh(user)
     return user
 
 
@@ -37,7 +37,7 @@ async def test_update_role_promote_success(client, admin_token, verified_user):
 @pytest.mark.asyncio
 async def test_update_role_demote_success(client, admin_token, session):
     """Returns 200 with role=customer after demoting an admin."""
-    another_admin = _make_admin(session, "demote@example.com")
+    another_admin = await _make_admin(session, "demote@example.com")
 
     response = await client.patch(
         f"/admin/users/{another_admin.id}/role",

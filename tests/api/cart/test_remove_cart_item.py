@@ -4,7 +4,7 @@ import pytest
 @pytest.mark.asyncio
 async def test_remove_from_cart_success(client, user_token, session, product_factory):
     """Removing an item returns 204 and the cart no longer contains it."""
-    product = product_factory()
+    product = await product_factory()
 
     await client.post("/cart/", json={"product_id": product.id, "quantity": 1},
                       headers={"Authorization": f"Bearer {user_token}"})

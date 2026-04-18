@@ -6,21 +6,21 @@ from datetime import datetime, timedelta, UTC
 import hashlib
 
 
-def test_revoked_token_fails_refresh(session, test_user):
+async def test_revoked_token_fails_refresh(session, test_user):
     """Test that revoked tokens cannot be refreshed."""
-    tokens = TokenService.create_tokens(test_user.email, test_user.id, test_user.role, session)
+    tokens = await TokenService.create_tokens(test_user.email, test_user.id, test_user.role, session)
 
     # Revoke
-    TokenService.revoke_token(tokens["refresh_token"], session)
+    await TokenService.revoke_token(tokens["refresh_token"], session)
 
     # Try to refresh
     with pytest.raises(HTTPException) as exc_info:
-        TokenService.refresh_access_token(tokens["refresh_token"], session)
+        await TokenService.refresh_access_token(tokens["refresh_token"], session)
 
     assert exc_info.value.status_code == 401
 
 
-def test_expired_token_fails_refresh(session, test_user):
+async def test_expired_token_fails_refresh(session, test_user):
     """Test that expired tokens cannot be refreshed."""
     # Create token with 1-second expiry
     short_token, jti, expires_at = TokenService.create_refresh_token(
@@ -34,11 +34,11 @@ def test_expired_token_fails_refresh(session, test_user):
         expires_at=datetime.now(UTC) - timedelta(seconds=1)  # Already expired
     )
     session.add(db_token)
-    session.commit()
+    await session.commit()
 
     # Try to refresh
     with pytest.raises(HTTPException) as exc_info:
-        TokenService.refresh_access_token(short_token, session)
+        await TokenService.refresh_access_token(short_token, session)
 
     assert exc_info.value.status_code == 401
     assert "expired" in exc_info.value.detail.lower()

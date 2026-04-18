@@ -1,5 +1,7 @@
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete as sa_delete
+from sqlalchemy.orm import joinedload
 from models.cart_items import CartItem
 from models.products import Product
 from decimal import Decimal
@@ -11,9 +13,9 @@ logger = get_logger(__name__)
 class CartService:
 
     @staticmethod
-    def get_cart(db: Session, user_id: int) -> list[CartItem]:
+    async def get_cart(db: AsyncSession, user_id: int) -> list[CartItem]:
         """Fetch all cart items for a user with product details eagerly loaded."""
-        cart_items = db.query(CartItem).options(joinedload(CartItem.product)).filter(CartItem.user_id==user_id).all()
+        cart_items = (await db.scalars(select(CartItem).options(joinedload(CartItem.product)).where(CartItem.user_id==user_id))).all()
         return cart_items
     
     @staticmethod
@@ -22,13 +24,13 @@ class CartService:
         return sum((item.product.price * item.quantity for item in cart_items), start=Decimal("0"))
     
     @staticmethod
-    def add_to_cart(db: Session, user_id: int, product_id: int, quantity: int) -> CartItem:
+    async def add_to_cart(db: AsyncSession, user_id: int, product_id: int, quantity: int) -> CartItem:
         """Add a product to the user's cart, or increment quantity if already exists."""
-        product = db.query(Product).filter(Product.id==product_id).first()
+        product = await db.scalar(select(Product).where(Product.id==product_id))
         if product is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
         
-        cart_item = db.query(CartItem).options(joinedload(CartItem.product)).filter(CartItem.user_id==user_id, CartItem.product_id==product_id).first()
+        cart_item = await db.scalar(select(CartItem).options(joinedload(CartItem.product)).where(CartItem.user_id==user_id, CartItem.product_id==product_id))
 
         if cart_item:
             if cart_item.quantity + quantity > product.stock:
@@ -44,18 +46,18 @@ class CartService:
             db.add(cart_item)
 
         try:
-            db.commit()
+            await db.commit()
         except Exception:
             logger.error("Add to cart commit failed", extra={"user_id": user_id, "product_id": product_id}, exc_info=True)
-            db.rollback()
+            await db.rollback()
             raise
-        cart_item = db.query(CartItem).options(joinedload(CartItem.product)).filter(CartItem.user_id==user_id, CartItem.product_id==product_id).first()
+        cart_item = await db.scalar(select(CartItem).options(joinedload(CartItem.product)).where(CartItem.user_id==user_id, CartItem.product_id==product_id))
         return cart_item
 
     @staticmethod
-    def update_cart_item(db: Session, user_id: int, product_id: int, new_quantity: int) -> CartItem:
+    async def update_cart_item(db: AsyncSession, user_id: int, product_id: int, new_quantity: int) -> CartItem:
         """Update the quantity of an existing cart item with stock validation."""
-        cart_item = db.query(CartItem).options(joinedload(CartItem.product)).filter(CartItem.user_id==user_id, CartItem.product_id==product_id).first()
+        cart_item = await db.scalar(select(CartItem).options(joinedload(CartItem.product)).where(CartItem.user_id==user_id, CartItem.product_id==product_id))
         if cart_item is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cart Item not found.")
     
@@ -64,40 +66,39 @@ class CartService:
                                                                                   "available_stock": cart_item.product.stock})
         cart_item.quantity = new_quantity
         try:
-            db.commit()
+            await db.commit()
         except Exception:
             logger.error("Update cart item commit failed", extra={"user_id": user_id, "product_id": product_id}, exc_info=True)
-            db.rollback()
+            await db.rollback()
             raise
-        cart_item = db.query(CartItem).options(joinedload(CartItem.product)).filter(CartItem.user_id==user_id, CartItem.product_id==product_id).first()
+        cart_item = await db.scalar(select(CartItem).options(joinedload(CartItem.product)).where(CartItem.user_id==user_id, CartItem.product_id==product_id))
         return cart_item
     
 
     @staticmethod
-    def clear_cart(db: Session, user_id: int):
+    async def clear_cart(db: AsyncSession, user_id: int):
         """Empty User's cart."""
-        db.query(CartItem).filter(CartItem.user_id == user_id).delete()
-
         try:
-            db.commit()
+            await db.execute(sa_delete(CartItem).where(CartItem.user_id == user_id))
+            await db.commit()
         except Exception:
             logger.error("Clear cart commit failed", extra={"user_id": user_id}, exc_info=True)
-            db.rollback()
+            await db.rollback()
             raise
 
 
     @staticmethod
-    def remove_from_cart(db: Session, user_id: int, product_id: int):
+    async def remove_from_cart(db: AsyncSession, user_id: int, product_id: int):
         """Remove an item from the user's cart."""
-        cart_item = db.query(CartItem).filter(CartItem.user_id==user_id, CartItem.product_id==product_id).first()
+        cart_item = await db.scalar(select(CartItem).where(CartItem.user_id==user_id, CartItem.product_id==product_id))
 
         if cart_item is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cart Item not found.")
     
-        db.delete(cart_item)
+        await db.delete(cart_item)
         try:
-            db.commit()
+            await db.commit()
         except Exception:
             logger.error("Remove from cart commit failed", extra={"user_id": user_id, "product_id": product_id}, exc_info=True)
-            db.rollback()
+            await db.rollback()
             raise

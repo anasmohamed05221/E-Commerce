@@ -15,8 +15,8 @@ async def test_get_cart_empty(client, user_token, session):
 @pytest.mark.asyncio
 async def test_get_cart_with_items(client, user_token, session, product_factory):
     """Cart returns items with product details and correct total."""
-    p1 = product_factory(name="Laptop", price=1000.00, stock=10)
-    p2 = product_factory(name="Mouse", price=50.00, stock=20)
+    p1 = await product_factory(name="Laptop", price=1000.00, stock=10)
+    p2 = await product_factory(name="Mouse", price=50.00, stock=20)
 
     # Add two different products
     await client.post("/cart/", json={"product_id": p1.id, "quantity": 2},

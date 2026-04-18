@@ -4,7 +4,7 @@ import pytest
 @pytest.mark.asyncio
 async def test_get_orders_success(client, user_token, order_factory):
     """Returns 200 with correct envelope shape."""
-    order_factory()
+    await order_factory()
 
     response = await client.get("/orders/", headers={"Authorization": f"Bearer {user_token}"})
 
@@ -32,9 +32,9 @@ async def test_get_orders_empty(client, user_token):
 @pytest.mark.asyncio
 async def test_get_orders_pagination_params(client, user_token, order_factory):
     """limit and offset query params are reflected in the response envelope."""
-    order_factory()
-    order_factory()
-    order_factory()
+    await order_factory()
+    await order_factory()
+    await order_factory()
 
     response = await client.get(
         "/orders/?limit=2&offset=1",

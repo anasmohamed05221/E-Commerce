@@ -18,7 +18,7 @@ async def test_checkout_requires_auth(client):
 @pytest.mark.asyncio
 async def test_checkout_success(client, user_token, product_factory, test_address):
     """Successful checkout returns 201 with full order and item details."""
-    product = product_factory(name="Laptop", price=1000.00, stock=10)
+    product = await product_factory(name="Laptop", price=1000.00, stock=10)
 
     await client.post("/cart/", json={"product_id": product.id, "quantity": 2},
                       headers={"Authorization": f"Bearer {user_token}"})
@@ -59,7 +59,7 @@ async def test_checkout_empty_cart(client, user_token, test_address):
 @pytest.mark.asyncio
 async def test_checkout_insufficient_stock(client, user_token, session, product_factory, test_address):
     """Checkout raises 409 when stock drops below cart quantity before checkout."""
-    product = product_factory(name="Laptop", price=1000.00, stock=10)
+    product = await product_factory(name="Laptop", price=1000.00, stock=10)
 
     # Add to cart when stock is sufficient
     await client.post("/cart/", json={"product_id": product.id, "quantity": 5},
@@ -67,7 +67,7 @@ async def test_checkout_insufficient_stock(client, user_token, session, product_
 
     # Simulate stock dropping before checkout
     product.stock = 2
-    session.commit()
+    await session.commit()
 
     response = await client.post(
         "/orders/",
@@ -82,7 +82,7 @@ async def test_checkout_insufficient_stock(client, user_token, session, product_
 @pytest.mark.asyncio
 async def test_checkout_response_schema(client, user_token, product_factory, test_address):
     """Response includes all expected fields from OrderOut schema."""
-    product = product_factory(name="Mouse", price=50.00, stock=5)
+    product = await product_factory(name="Mouse", price=50.00, stock=5)
 
     await client.post("/cart/", json={"product_id": product.id, "quantity": 1},
                       headers={"Authorization": f"Bearer {user_token}"})
@@ -119,7 +119,7 @@ async def test_checkout_response_schema(client, user_token, product_factory, tes
 @pytest.mark.asyncio
 async def test_checkout_clears_cart(client, user_token, product_factory, test_address):
     """Cart is empty after a successful checkout."""
-    product = product_factory(name="Keyboard", price=60.00, stock=5)
+    product = await product_factory(name="Keyboard", price=60.00, stock=5)
 
     await client.post("/cart/", json={"product_id": product.id, "quantity": 1},
                       headers={"Authorization": f"Bearer {user_token}"})
@@ -137,7 +137,7 @@ async def test_checkout_clears_cart(client, user_token, product_factory, test_ad
 @pytest.mark.asyncio
 async def test_checkout_invalid_address(client, user_token, product_factory):
     """Checkout returns 404 when address_id does not belong to the user."""
-    product = product_factory(name="Laptop", price=1000.00, stock=10)
+    product = await product_factory(name="Laptop", price=1000.00, stock=10)
 
     await client.post("/cart/", json={"product_id": product.id, "quantity": 1},
                       headers={"Authorization": f"Bearer {user_token}"})

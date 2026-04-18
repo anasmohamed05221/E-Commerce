@@ -10,7 +10,7 @@ async def test_get_categories_sorting(session):
     c2 = Category(name="Apparel", description="Shirts and stuff")
     c3 = Category(name="Zebra", description="Animal stuff")
     session.add_all([c1, c2, c3])
-    session.commit()
+    await session.commit()
     # 2. Action: Call the service directly
     categories = await CategoryService.get_categories(db=session)
     # 3. Assertions

@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy import select
 from fastapi import HTTPException
 from services.products import ProductService
 from services.cart import CartService
@@ -8,45 +9,45 @@ from models.cart_items import CartItem
 from models.enums import PaymentMethod
 
 
-def test_delete_product_success(session, product_factory):
+async def test_delete_product_success(session, product_factory):
     """Product is removed from the database after deletion."""
-    product = product_factory()
+    product = await product_factory()
     product_id = product.id
 
-    ProductService.delete_product(session, product_id)
+    await ProductService.delete_product(session, product_id)
 
-    assert session.query(Product).filter(Product.id == product_id).first() is None
+    assert await session.scalar(select(Product).where(Product.id == product_id)) is None
 
 
-def test_delete_product_not_found(session):
+async def test_delete_product_not_found(session):
     """Raises 404 when product_id does not exist."""
     with pytest.raises(HTTPException) as exc:
-        ProductService.delete_product(session, 99999)
+        await ProductService.delete_product(session, 99999)
 
     assert exc.value.status_code == 404
 
 
-def test_delete_product_blocked_by_order(session, verified_user, product_factory, test_address):
+async def test_delete_product_blocked_by_order(session, verified_user, product_factory, test_address):
     """Raises 409 when the product is referenced by an existing order item."""
-    product = product_factory()
-    CartService.add_to_cart(session, verified_user.id, product.id, 1)
-    CheckoutService.checkout(session, verified_user.id, test_address.id, PaymentMethod.COD)
+    product = await product_factory()
+    await CartService.add_to_cart(session, verified_user.id, product.id, 1)
+    await CheckoutService.checkout(session, verified_user.id, test_address.id, PaymentMethod.COD)
 
     with pytest.raises(HTTPException) as exc:
-        ProductService.delete_product(session, product.id)
+        await ProductService.delete_product(session, product.id)
 
     assert exc.value.status_code == 409
 
 
-def test_delete_product_removes_cart_items(session, verified_user, product_factory):
+async def test_delete_product_removes_cart_items(session, verified_user, product_factory):
     """Deleting a product that is only in a cart (no orders) succeeds and cascades cart items."""
-    product = product_factory()
-    CartService.add_to_cart(session, verified_user.id, product.id, 2)
+    product = await product_factory()
+    await CartService.add_to_cart(session, verified_user.id, product.id, 2)
 
-    cart_item = session.query(CartItem).filter(CartItem.product_id == product.id).first()
+    cart_item = await session.scalar(select(CartItem).where(CartItem.product_id == product.id))
     assert cart_item is not None
 
-    ProductService.delete_product(session, product.id)
+    await ProductService.delete_product(session, product.id)
 
-    assert session.query(CartItem).filter(CartItem.product_id == product.id).first() is None
-    assert session.query(Product).filter(Product.id == product.id).first() is None
+    assert await session.scalar(select(CartItem).where(CartItem.product_id == product.id)) is None
+    assert await session.scalar(select(Product).where(Product.id == product.id)) is None

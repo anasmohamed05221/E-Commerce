@@ -38,8 +38,8 @@ async def test_list_addresses_only_own(client, user_token, test_address, session
         is_active=True
     )
     session.add(other_user)
-    session.commit()
-    session.refresh(other_user)
+    await session.commit()
+    await session.refresh(other_user)
 
     other_address = Address(
         user_id=other_user.id,
@@ -50,7 +50,7 @@ async def test_list_addresses_only_own(client, user_token, test_address, session
         is_default=True
     )
     session.add(other_address)
-    session.commit()
+    await session.commit()
 
     response = await client.get("/addresses/", headers={"Authorization": f"Bearer {user_token}"})
 

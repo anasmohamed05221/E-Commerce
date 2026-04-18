@@ -7,7 +7,7 @@ async def test_get_categories_success(client, session):
     c1 = Category(name="Electronics", description="Tech gear")
     c2 = Category(name="Books", description="Reading material")
     session.add_all([c1, c2])
-    session.commit()
+    await session.commit()
     # 2. Action: Hit the endpoint
     response = await client.get("/categories/")
     # 3. Assertions

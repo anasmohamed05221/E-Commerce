@@ -38,7 +38,7 @@ async def test_deactivate_user_self(client, admin_token, verified_admin):
 async def test_deactivate_user_already_inactive(client, admin_token, session, verified_user):
     """Returns 409 when user is already inactive."""
     verified_user.is_active = False
-    session.commit()
+    await session.commit()
 
     response = await client.patch(
         f"/admin/users/{verified_user.id}/deactivate",

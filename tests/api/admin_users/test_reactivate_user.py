@@ -5,7 +5,7 @@ import pytest
 async def test_reactivate_user_success(client, admin_token, session, verified_user):
     """Returns 200 with is_active=true on the response."""
     verified_user.is_active = False
-    session.commit()
+    await session.commit()
 
     response = await client.patch(
         f"/admin/users/{verified_user.id}/reactivate",

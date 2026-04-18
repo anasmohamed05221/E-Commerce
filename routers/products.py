@@ -13,12 +13,12 @@ router = APIRouter(
 
 @router.get("/", response_model=ProductListOut, status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
-def get_products(
+async def get_products(
     db: db_dependency, request: Request,
     filters: ProductFilterParams = Depends()
     ):
     """List products with pagination and optional filtering by category and price range."""
-    items, total = ProductService.get_products(
+    items, total = await ProductService.get_products(
         db, filters.limit, filters.offset, filters.category_id, filters.min_price, filters.max_price
     )
 
@@ -27,9 +27,9 @@ def get_products(
 
 @router.get("/{product_id}", response_model=ProductDetailOut, status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
-def get_product_details(db: db_dependency, request: Request, product_id: int):
+async def get_product_details(db: db_dependency, request: Request, product_id: int):
     """Get detailed product information by ID."""
-    product = ProductService.get_product_by_id(db, product_id)
+    product = await ProductService.get_product_by_id(db, product_id)
     if product is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
     return product

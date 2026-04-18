@@ -3,9 +3,10 @@ os.environ["ENV"] = "testing"
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker, Session
-from typing import Generator
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.pool import NullPool
+from starlette.middleware.base import BaseHTTPMiddleware
 from utils.hashing import get_password_hash
 from services.token import TokenService
 from models.users import User
@@ -24,126 +25,148 @@ from core.redis_client import redis_client
 from filelock import FileLock
 
 
-# SYNC PostgreSql for testing (matches sync service layer)
 SQLALCHEMY_DATABASE_URL = settings.TEST_DATABASE_URL
 
+
 @pytest.fixture(scope="session")
-def db_engine(tmp_path_factory, worker_id):
-    """
-    (Transactional isolation + xdist parallelism setup for testing time +60% optimization)
-    Creates the database schema once for the entire test session.
-    Drops all tables after all tests finish.
-    """
-    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+def worker_id(request):
+    """Provide worker_id even when xdist is not active."""
+    if hasattr(request.config, "workerinput"):
+        return request.config.workerinput["workerid"]
+    return "master"
+
+
+# Engine & Schema (session-scoped, xdist-safe)
+
+@pytest.fixture(scope="session")
+async def db_engine(tmp_path_factory, worker_id):
+    """Create the async engine and set up schema once per test session."""
+    engine = create_async_engine(SQLALCHEMY_DATABASE_URL, poolclass=NullPool)
 
     if worker_id == "master":
-        # Running without xdist — just create normally
-        Base.metadata.create_all(bind=engine)
+        # Running without xdist
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
         yield engine
-        Base.metadata.drop_all(bind=engine)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+        await engine.dispose()
         return
-    
-    # Running with xdist — use a file lock so only one worker runs DDL
+
+    # Running with xdist -- file lock so only one worker creates tables
     root_tmp = tmp_path_factory.getbasetemp().parent
     lock_path = root_tmp / "db_setup.lock"
     flag_path = root_tmp / "db_ready.flag"
 
     with FileLock(str(lock_path)):
         if not flag_path.exists():
-            Base.metadata.drop_all(bind=engine)
-            Base.metadata.create_all(bind=engine)
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.drop_all)
+                await conn.run_sync(Base.metadata.create_all)
             flag_path.touch()
 
     yield engine
-    # No drop here — last worker can't reliably know it's last
-    # Drop happens on next run's create_all (drop_all above)
+    await engine.dispose()
 
-    
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False)
 
-@pytest.fixture(autouse=True)
-def mock_redis_for_tests():
-    """
-    Automatically intercept the redis client before EVERY test.
-    We inject a fake 'AsyncMock' object that simulates a Cache Miss
-    so the tests always hit the SQLite test database smoothly.
-    """
-    # Create a fake redis object
-    fake_redis = AsyncMock()
-    # Tell the fake .get() method to return None (Cache Miss)
-    fake_redis.get.return_value = None
-    
-    # Temporarily attach it to your application's redis_client
-    redis_client.redis = fake_redis
-    
-    yield  # Let the test run!
-    
-    # Cleanup after the test finishes
-    redis_client.redis = None
+# Transactional Isolation (per-test)
+#
+# How it works:
+#   1. Each test gets its own CONNECTION with a BEGIN (outer transaction).
+#   2. A SAVEPOINT sits inside that transaction.
+#   3. When service code calls session.commit(), it releases the savepoint
+#      (not the outer transaction). An event listener immediately opens a
+#      new savepoint so the next commit is also contained.
+#   4. After the test, the outer transaction is ROLLED BACK.
+#      Nothing ever reaches the database, so parallel workers never collide.
 
 @pytest.fixture
-def session(db_engine):
-    """
-    Wraps each test in a transaction with a savepoint.
-    Rolls back after the test so data never persists between tests.
-    Schema is reused across all tests — no create/drop per test.
-    """
-    connection = db_engine.connect()
-    outer_transaction = connection.begin()
-    
-    # Create session
-    db = TestingSessionLocal(bind=connection)
-    db.begin_nested() # start first savepoint
+async def connection(db_engine):
+    """Per-test connection with an outer transaction that is always rolled back."""
+    async with db_engine.connect() as conn:
+        txn = await conn.begin()
+        await conn.begin_nested()
+        yield conn
+        await txn.rollback()
 
-    @event.listens_for(db, "after_transaction_end")
+
+@pytest.fixture
+async def session(connection):
+    """Async session for test fixtures and assertions, bound to the shared connection."""
+    async_session = AsyncSession(bind=connection, expire_on_commit=False)
+
+    @event.listens_for(async_session.sync_session, "after_transaction_end")
     def restart_savepoint(session, transaction):
-        if transaction.nested and not transaction._parent.nested:
-            session.begin_nested()
+        if connection.closed:
+            return
+        if not connection.in_nested_transaction():
+            connection.sync_connection.begin_nested()
 
-    yield db
-
-    db.close()
-    outer_transaction.rollback()
-    connection.close()
+    yield async_session
+    await async_session.close()
 
 
 @pytest.fixture
-async def client(session: Session):
+async def client(connection):
     """
-    Yields an HTTP client that interacts with the app using the test database.
-    The client is async (for FastAPI), but the DB session is sync.
+    HTTPX test client. The app's get_db dependency is overridden to use
+    the same connection, so fixture data and app data share one transaction.
+
+    BaseHTTPMiddleware is stripped from the middleware stack because it spawns
+    call_next in a separate anyio task -- asyncpg connections cannot be shared
+    across task boundaries. ASGI-native middleware (CORS) is kept.
     """
-    # Override the get_db dependency to use our test session
-    def override_get_db():
-        try:
+    async def override_get_db():
+        async with AsyncSession(bind=connection, expire_on_commit=False) as session:
             yield session
-        finally:
-            pass  # Session cleanup handled by session fixture
-    
+
     app.dependency_overrides[get_db] = override_get_db
-    
-    # Create async client for FastAPI
+
+    # Strip BaseHTTPMiddleware variants (RequestIDMiddleware, log_requests)
+    # to avoid asyncpg "Future attached to a different loop" error.
+    original_user_middleware = list(app.user_middleware)
+    original_middleware_stack = app.middleware_stack
+
+    app.user_middleware = [
+        m for m in original_user_middleware
+        if not issubclass(m.cls, BaseHTTPMiddleware)
+    ]
+    app.middleware_stack = app.build_middleware_stack()
+
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test"
     ) as ac:
         yield ac
-    
-    # Clean up
+
     app.dependency_overrides.clear()
+    app.user_middleware = original_user_middleware
+    app.middleware_stack = original_middleware_stack
 
 
-# Pre-hash once outside the fixture
+# Redis Mock
+
 HASHED_TEST_PASSWORD = get_password_hash("TestPassword123!")
 
 
-@pytest.fixture
-def verified_user(session, worker_id):
-    """Create a verified, active user."""
+@pytest.fixture(autouse=True)
+def mock_redis_for_tests():
+    """Mock Redis to always return cache miss so tests hit the database."""
+    fake_redis = AsyncMock()
+    fake_redis.get.return_value = None
+    redis_client.redis = fake_redis
+    yield
+    redis_client.redis = None
 
+
+# User Fixtures
+
+@pytest.fixture
+async def verified_user(session, worker_id):
+    """Create a verified, active customer."""
     user = User(
-        email=f"exampleuser_{worker_id}@email.com",
-        first_name="Example",
+        email=f"testuser_{worker_id}@email.com",
+        first_name="Test",
         last_name="User",
         hashed_password=HASHED_TEST_PASSWORD,
         phone_number="+201111111111",
@@ -151,34 +174,35 @@ def verified_user(session, worker_id):
         is_active=True
     )
     session.add(user)
-    session.commit()
-    session.refresh(user)
+    await session.commit()
+    await session.refresh(user)
     return user
 
 
 @pytest.fixture
-def verified_admin(session, worker_id):
+async def verified_admin(session, worker_id):
     """Create a verified, active admin."""
-
     user = User(
-        email=f"exampleadmin_{worker_id}@email.com",
-        first_name="Example",
+        email=f"testadmin_{worker_id}@email.com",
+        first_name="Test",
         last_name="Admin",
         hashed_password=HASHED_TEST_PASSWORD,
         role=UserRole.ADMIN,
-        phone_number="+2012121212121",
+        phone_number="+201212121212",
         is_verified=True,
         is_active=True
     )
     session.add(user)
-    session.commit()
-    session.refresh(user)
+    await session.commit()
+    await session.refresh(user)
     return user
 
 
+# Token Fixtures
+
 @pytest.fixture
 def user_token(verified_user) -> str:
-    """Generate a JWT access token for verified_user directly, bypassing HTTP login."""
+    """JWT access token for verified_user (no HTTP roundtrip)."""
     return TokenService.create_access_token(
         email=verified_user.email,
         user_id=verified_user.id,
@@ -188,7 +212,7 @@ def user_token(verified_user) -> str:
 
 @pytest.fixture
 def admin_token(verified_admin) -> str:
-    """Generate a JWT access token for verified_admin directly, bypassing HTTP login."""
+    """JWT access token for verified_admin (no HTTP roundtrip)."""
     return TokenService.create_access_token(
         email=verified_admin.email,
         user_id=verified_admin.id,
@@ -196,44 +220,43 @@ def admin_token(verified_admin) -> str:
     )
 
 
+# Data Fixtures
+
 @pytest.fixture
-def test_category(session):
-    """Create a reusable test category."""
+async def test_category(session):
+    """A reusable test category."""
     category = Category(name="Electronics", description="Tech gear")
     session.add(category)
-    session.commit()
-    session.refresh(category)
+    await session.commit()
+    await session.refresh(category)
     return category
 
 
 @pytest.fixture
-def product_factory(session, test_category):
-    """Factory fixture to create test products with custom attributes."""
-    def _create(*, name="Laptop", price=1000.00, stock=10):
+async def product_factory(session, test_category):
+    """Factory to create products. Usage: product = await product_factory(name=..., stock=...)"""
+    async def _create(*, name="Laptop", price=1000.00, stock=10):
         product = Product(name=name, price=price, stock=stock, category_id=test_category.id)
         session.add(product)
-        session.commit()
-        session.refresh(product)
+        await session.commit()
+        await session.refresh(product)
         return product
     return _create
 
 
 @pytest.fixture
-def seed_products(session, test_category):
-    """Seed multiple products for API testing."""
+async def seed_products(session, test_category):
+    """Seed two products for listing/filter tests."""
     p1 = Product(name="Laptop", price=1000.00, stock=5, category_id=test_category.id)
     p2 = Product(name="Mouse", price=50.00, stock=20, category_id=test_category.id)
-
     session.add_all([p1, p2])
-    session.commit()
-
-    # Return so tests can access their IDs
+    await session.commit()
     return [p1, p2]
 
 
 @pytest.fixture
-def test_address(session, verified_user):
-    """Create a default address for verified_user."""
+async def test_address(session, verified_user):
+    """Default address for verified_user."""
     address = Address(
         user_id=verified_user.id,
         street="123 Test St",
@@ -243,18 +266,18 @@ def test_address(session, verified_user):
         is_default=True,
     )
     session.add(address)
-    session.commit()
-    session.refresh(address)
+    await session.commit()
+    await session.refresh(address)
     return address
 
 
 @pytest.fixture
-def order_factory(session, verified_user, product_factory, test_address):
-    def _create(products_and_quantities=None):
+async def order_factory(session, verified_user, product_factory, test_address):
+    """Factory to create orders via the full checkout flow."""
+    async def _create(products_and_quantities=None):
         if products_and_quantities is None:
-            products_and_quantities = [(product_factory(), 2)]
+            products_and_quantities = [(await product_factory(), 2)]
         for product, quantity in products_and_quantities:
-            CartService.add_to_cart(session, verified_user.id, product.id, quantity)
-
-        return CheckoutService.checkout(session, verified_user.id, test_address.id, PaymentMethod.COD)
+            await CartService.add_to_cart(session, verified_user.id, product.id, quantity)
+        return await CheckoutService.checkout(session, verified_user.id, test_address.id, PaymentMethod.COD)
     return _create

@@ -21,9 +21,9 @@ router = APIRouter(
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 @limiter.limit("3/minute")
-def create_user(request: Request, body: CreateUserRequest, db: db_dependency, bg: BackgroundTasks):
+async def create_user(request: Request, body: CreateUserRequest, db: db_dependency, bg: BackgroundTasks):
     """Register a new user and send verification email."""
-    user = AuthService.create_user(body, db, bg)
+    user = await AuthService.create_user(body, db, bg)
 
     logger.info(
         "User registered successfully",
@@ -35,11 +35,11 @@ def create_user(request: Request, body: CreateUserRequest, db: db_dependency, bg
 
 @router.post("/token", response_model=Token)
 @limiter.limit("5/minute")
-def login_for_access_token(request: Request, db: db_dependency, form_data: OAuth2PasswordRequestForm = Depends()):
+async def login_for_access_token(request: Request, db: db_dependency, form_data: OAuth2PasswordRequestForm = Depends()):
     """Authenticate user and return access + refresh token pair."""
-    user = AuthService.authenticate_user(form_data.username, form_data.password, db)
+    user = await AuthService.authenticate_user(form_data.username, form_data.password, db)
 
-    token = TokenService.create_tokens(user.email, user.id, user.role, db)
+    token = await TokenService.create_tokens(user.email, user.id, user.role, db)
 
     # Log successful login
     logger.info(
@@ -53,7 +53,7 @@ def login_for_access_token(request: Request, db: db_dependency, form_data: OAuth
 
 @router.post("/verify", status_code=status.HTTP_200_OK)
 @limiter.limit("3/minute")
-def verify_email(request: Request, body: VerifyEmailRequest, db: db_dependency):
+async def verify_email(request: Request, body: VerifyEmailRequest, db: db_dependency):
     """
     Verifies user's email with the provided code.
     
@@ -63,7 +63,7 @@ def verify_email(request: Request, body: VerifyEmailRequest, db: db_dependency):
     - Code matches
     - Code not expired
     """
-    user = AuthService.verify_user(body, db)
+    user = await AuthService.verify_user(body, db)
 
     # Log successful verification
     logger.info(
@@ -77,11 +77,11 @@ def verify_email(request: Request, body: VerifyEmailRequest, db: db_dependency):
 
 @router.post("/refresh", response_model=Token)
 @limiter.limit("10/minute")
-def refresh_token(request: Request, body: RefreshTokenRequest, db: db_dependency):
+async def refresh_token(request: Request, body: RefreshTokenRequest, db: db_dependency):
     """
     Get new access token using refresh token.
     """
-    token = TokenService.refresh_access_token(body.refresh_token, db)
+    token = await TokenService.refresh_access_token(body.refresh_token, db)
 
     # Log token refresh (extract user_id from token if available)
     logger.info("Access token refreshed")
@@ -91,11 +91,11 @@ def refresh_token(request: Request, body: RefreshTokenRequest, db: db_dependency
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
-def logout(request: Request, body: RevokeTokenRequest, db: db_dependency):
+async def logout(request: Request, body: RevokeTokenRequest, db: db_dependency):
     """
     Revoke refresh token (logout).
     """
-    TokenService.revoke_token(body.refresh_token, db)
+    await TokenService.revoke_token(body.refresh_token, db)
 
     logger.info("User logged out")
 
@@ -104,16 +104,16 @@ def logout(request: Request, body: RevokeTokenRequest, db: db_dependency):
 
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
 @limiter.limit("3/minute")
-def forgot_password_request(request: Request, body: ForgotPasswordRequest, db: db_dependency, bg: BackgroundTasks):
+async def forgot_password_request(request: Request, body: ForgotPasswordRequest, db: db_dependency, bg: BackgroundTasks):
     """Request password reset via email."""
-    AuthService.forgot_password(db, body.email, bg)
+    await AuthService.forgot_password(db, body.email, bg)
     return {"message": "If that email exists, a reset link has been sent."}
 
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
 @limiter.limit("5/minute")
-def reset_password(request: Request, body: ResetPasswordRequest, db: db_dependency):
+async def reset_password(request: Request, body: ResetPasswordRequest, db: db_dependency):
     """Reset password using a valid reset token (public endpoint)."""
-    AuthService.reset_password(db, body.token, body.new_password)
+    await AuthService.reset_password(db, body.token, body.new_password)
     return {"message": "Password updated successfully. Please login again."}
 

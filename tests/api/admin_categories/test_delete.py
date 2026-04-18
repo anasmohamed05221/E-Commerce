@@ -24,7 +24,7 @@ async def test_delete_category_not_found_returns_404(client, admin_token):
 
 @pytest.mark.asyncio
 async def test_delete_category_with_products_returns_409(client, admin_token, test_category, product_factory):
-    product_factory()  # creates a product linked to test_category
+    await product_factory()  # creates a product linked to test_category
 
     response = await client.delete(
         f"/admin/categories/{test_category.id}",

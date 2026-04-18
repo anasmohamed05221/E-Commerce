@@ -10,7 +10,7 @@ from services.checkout import CheckoutService
 @pytest.mark.asyncio
 async def test_get_order_success(client, user_token, order_factory):
     """Returns 200 with full OrderOut shape including nested items and product."""
-    order = order_factory()
+    order = await order_factory()
 
     response = await client.get(
         f"/orders/{order.id}",
@@ -53,16 +53,16 @@ async def test_get_order_other_user(client, user_token, session, product_factory
         is_active=True
     )
     session.add(other_user)
-    session.commit()
-    session.refresh(other_user)
+    await session.commit()
+    await session.refresh(other_user)
 
     addr = Address(user_id=other_user.id, street="1 St", city="Cairo", country="Egypt", postal_code="11511", is_default=True)
     session.add(addr)
-    session.commit()
+    await session.commit()
 
-    product = product_factory()
-    CartService.add_to_cart(session, other_user.id, product.id, 1)
-    other_order = CheckoutService.checkout(db=session, user_id=other_user.id, address_id=addr.id, payment_method=PaymentMethod.COD)
+    product = await product_factory()
+    await CartService.add_to_cart(session, other_user.id, product.id, 1)
+    other_order = await CheckoutService.checkout(db=session, user_id=other_user.id, address_id=addr.id, payment_method=PaymentMethod.COD)
 
     response = await client.get(
         f"/orders/{other_order.id}",

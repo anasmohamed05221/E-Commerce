@@ -1,5 +1,7 @@
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 from models.orders import Order
 from models.order_items import OrderItem
 from models.cart_items import CartItem
@@ -14,14 +16,14 @@ logger = get_logger(__name__)
 
 class CheckoutService:
     @staticmethod
-    def _validate_cart(db: Session, user_id: int) -> list[CartItem]:
+    async def _validate_cart(db: AsyncSession, user_id: int) -> list[CartItem]:
         """Fetch cart items and verify cart is non-empty with sufficient stock.
 
         Raises:
             HTTPException 400: If cart is empty.
             HTTPException 409: If any item exceeds available stock.
         """
-        cart_items = CartService.get_cart(db, user_id)
+        cart_items = await CartService.get_cart(db, user_id)
         if len(cart_items)==0:
             logger.warning("Checkout attempted with empty cart", extra={"user_id": user_id})
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, 
@@ -44,7 +46,7 @@ class CheckoutService:
 
 
     @staticmethod
-    def _process_cart_items(db: Session, user_id: int, cart_items: list[CartItem], order: Order) -> tuple[list[OrderItem], list[InventoryChange]]:
+    async def _process_cart_items(db: AsyncSession, user_id: int, cart_items: list[CartItem], order: Order) -> tuple[list[OrderItem], list[InventoryChange]]:
         """Create order items and inventory change records from cart items.
 
         Snapshots product price at time of purchase, decrements product stock,
@@ -54,7 +56,7 @@ class CheckoutService:
         inventory_changes = []
         for item in cart_items:
             # Handle race condition (Pessimistic Lock)
-            product = db.query(Product).filter(Product.id==item.product_id).with_for_update().first()
+            product = await db.scalar(select(Product).where(Product.id==item.product_id).with_for_update())
             if item.quantity > product.stock:
                 logger.warning(
                     "Checkout blocked by insufficient stock",
@@ -77,19 +79,19 @@ class CheckoutService:
 
 
     @staticmethod
-    def checkout(db: Session, user_id: int, address_id: int, payment_method: PaymentMethod) -> Order:
+    async def checkout(db: AsyncSession, user_id: int, address_id: int, payment_method: PaymentMethod) -> Order:
         """Execute the full checkout flow as a single atomic transaction.
 
         Validates cart, creates order with items, decrements stock,
         logs inventory changes, and clears the cart.
         """
         # Address ownership validation
-        address = db.query(Address).filter(Address.id == address_id, Address.user_id == user_id).first()
+        address = await db.scalar(select(Address).where(Address.id == address_id, Address.user_id == user_id))
         if address is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Address not found.")
         
         # Fetch user's cart items
-        cart_items = CheckoutService._validate_cart(db, user_id)
+        cart_items = await CheckoutService._validate_cart(db, user_id)
         # Create order
         total_amount = CartService.calculate_cart_total_price(cart_items)
         order = Order(
@@ -100,25 +102,25 @@ class CheckoutService:
             payment_method=payment_method
         )
         db.add(order)
-        db.flush()
+        await db.flush()
 
         # Create order items and inventory changes
-        order_items, inventory_changes = CheckoutService._process_cart_items(db, user_id, cart_items, order)
+        order_items, inventory_changes = await CheckoutService._process_cart_items(db, user_id, cart_items, order)
         
         # Checkout
         for order_item, inventory_change, cart_item in zip(order_items, inventory_changes, cart_items):
             db.add(order_item)
             db.add(inventory_change)
-            db.delete(cart_item)
+            await db.delete(cart_item)
         
         try:
-            db.commit()
+            await db.commit()
         except Exception:
             logger.error("Checkout commit failed", extra={"user_id": user_id})
-            db.rollback()
+            await db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
                                 detail="Checkout commit failed")
-        order_eagered = db.query(Order).options(joinedload(Order.items).joinedload(OrderItem.product)).filter(Order.id==order.id).first()
+        order_eagered = await db.scalar(select(Order).options(joinedload(Order.items).joinedload(OrderItem.product)).where(Order.id==order.id))
         return order_eagered
 
         

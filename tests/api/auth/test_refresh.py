@@ -85,8 +85,8 @@ async def test_refresh_expired_token(client, session):
         is_active=True
     )
     session.add(user)
-    session.commit()
-    session.refresh(user)
+    await session.commit()
+    await session.refresh(user)
     
     # Create a refresh token manually with expired timestamp
     refresh_token, jti, _ = TokenService.create_refresh_token(
@@ -101,7 +101,7 @@ async def test_refresh_expired_token(client, session):
         expires_at=datetime.now(UTC) - timedelta(seconds=1)  # Already expired
     )
     session.add(db_token)
-    session.commit()
+    await session.commit()
     
     # Attempt to refresh with expired token
     response = await client.post("/auth/refresh", json={
@@ -125,14 +125,14 @@ async def test_refresh_revoked_token(client, session):
         is_active=True
     )
     session.add(user)
-    session.commit()
-    session.refresh(user)
+    await session.commit()
+    await session.refresh(user)
     
     # Create tokens normally
-    tokens = TokenService.create_tokens(user.email, user.id, user.role, session)
-    
+    tokens = await TokenService.create_tokens(user.email, user.id, user.role, session)
+
     # Revoke the refresh token
-    TokenService.revoke_token(tokens["refresh_token"], session)
+    await TokenService.revoke_token(tokens["refresh_token"], session)
     
     # Attempt to use revoked token
     response = await client.post("/auth/refresh", json={

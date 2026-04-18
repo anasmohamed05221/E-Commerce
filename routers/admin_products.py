@@ -15,25 +15,25 @@ router = APIRouter(
 
 @router.post("/", response_model= ProductDetailOut, status_code=status.HTTP_201_CREATED)
 @limiter.limit("30/minute")
-def create_product(request: Request, db: db_dependency, admin: admin_dependency, body: ProductCreate):
+async def create_product(request: Request, db: db_dependency, admin: admin_dependency, body: ProductCreate):
     """Create a new product. Admin only."""
-    product = ProductService.create_product(db, body)
+    product = await ProductService.create_product(db, body)
     logger.info("Product created", extra={"admin_id": admin.id, "product_id": product.id})
     return product
 
 
 @router.patch("/{product_id}", response_model= ProductDetailOut, status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute")
-def update_product(request: Request, db: db_dependency, admin: admin_dependency, body: ProductUpdate, product_id: int):
+async def update_product(request: Request, db: db_dependency, admin: admin_dependency, body: ProductUpdate, product_id: int):
     """Update an existing product. Admin only."""
-    product = ProductService.update_product(db, body, product_id)
+    product = await ProductService.update_product(db, body, product_id)
     logger.info("Product updated", extra={"admin_id": admin.id, "product_id": product.id})
     return product
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 @limiter.limit("30/minute")
-def delete_product(request: Request, db: db_dependency, admin: admin_dependency, product_id: int):
+async def delete_product(request: Request, db: db_dependency, admin: admin_dependency, product_id: int):
     """Delete an existing product. Admin only."""
-    ProductService.delete_product(db, product_id)
+    await ProductService.delete_product(db, product_id)
     logger.info("Product deleted", extra={"admin_id": admin.id, "product_id": product_id})

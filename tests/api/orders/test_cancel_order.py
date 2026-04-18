@@ -4,7 +4,7 @@ import pytest
 @pytest.mark.asyncio
 async def test_cancel_order_success(client, user_token, order_factory):
     """Returns 200 with status set to cancelled."""
-    order = order_factory()
+    order = await order_factory()
 
     response = await client.post(
         f"/orders/{order.id}/cancel",
@@ -25,7 +25,7 @@ async def test_cancel_order_not_found(client, user_token):
 @pytest.mark.asyncio
 async def test_cancel_order_not_pending(client, user_token, order_factory):
     """Returns 409 when the order is already cancelled."""
-    order = order_factory()
+    order = await order_factory()
 
     await client.post(f"/orders/{order.id}/cancel", headers={"Authorization": f"Bearer {user_token}"})
     response = await client.post(f"/orders/{order.id}/cancel", headers={"Authorization": f"Bearer {user_token}"})

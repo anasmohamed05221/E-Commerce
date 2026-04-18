@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from models.refresh_tokens import RefreshToken
 
 
@@ -22,14 +23,15 @@ async def test_deactivate_user_success(client, verified_user, session):
     assert "deactivated" in response.json()["message"].lower()
     
     # Verify user is deactivated in database
-    session.refresh(verified_user)
+    await session.refresh(verified_user)
     assert verified_user.is_active is False
     
     # Verify all refresh tokens are revoked
-    tokens = session.query(RefreshToken).filter(
-        RefreshToken.user_id == verified_user.id
-    ).all()
-    
+    result = await session.execute(
+        select(RefreshToken).where(RefreshToken.user_id == verified_user.id)
+    )
+    tokens = result.scalars().all()
+
     for token in tokens:
         assert token.revoked is True
     
@@ -81,7 +83,7 @@ async def test_deactivate_user_wrong_password(client, verified_user, session):
     assert "incorrect password" in response.json()["detail"].lower()
     
     # Verify user is still active
-    session.refresh(verified_user)
+    await session.refresh(verified_user)
     assert verified_user.is_active is True
 
 

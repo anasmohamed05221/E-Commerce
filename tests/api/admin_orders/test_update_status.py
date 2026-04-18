@@ -3,8 +3,8 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_update_order_status_success(client, admin_token, order_factory):
-    """Advances PENDING → CONFIRMED — returns AdminOrderOut with user_id."""
-    order = order_factory()
+    """Advances PENDING -> CONFIRMED -- returns AdminOrderOut with user_id."""
+    order = await order_factory()
 
     response = await client.patch(
         f"/admin/orders/{order.id}/status",
@@ -34,8 +34,8 @@ async def test_update_order_status_not_found(client, admin_token):
 
 @pytest.mark.asyncio
 async def test_update_order_status_invalid_transition(client, admin_token, order_factory):
-    """Returns 409 when trying to skip CONFIRMED (PENDING → COMPLETED)."""
-    order = order_factory()
+    """Returns 409 when trying to skip CONFIRMED (PENDING -> COMPLETED)."""
+    order = await order_factory()
 
     response = await client.patch(
         f"/admin/orders/{order.id}/status",

@@ -1,5 +1,7 @@
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
+from sqlalchemy.orm import joinedload
 from decimal import Decimal
 from models.products import Product
 from models.categories import Category
@@ -13,36 +15,36 @@ logger = get_logger(__name__)
 
 class ProductService:
     @staticmethod
-    def get_products(
-        db: Session,
+    async def get_products(
+        db: AsyncSession,
         limit: int, offset: int,
         category_id: Optional[int] = None,
         min_price: Optional[Decimal] = None, max_price: Optional[Decimal] = None
         ) -> tuple[list[Product], int]:
         """Fetch paginated products with optional category and price filters."""
-        query = db.query(Product).order_by(Product.id)
+        query = select(Product).order_by(Product.id)
         if category_id is not None:
-            query = query.filter(Product.category_id == category_id)
+            query = query.where(Product.category_id == category_id)
         if min_price is not None:
-            query = query.filter(Product.price >= min_price)
+            query = query.where(Product.price >= min_price)
         if max_price is not None:
-            query = query.filter(Product.price <= max_price)
+            query = query.where(Product.price <= max_price)
 
-        total = query.count()
+        total = await db.scalar(select(func.count()).select_from(query.subquery()))
 
-        items = query.offset(offset).limit(limit).all()
+        items = (await db.scalars(query.offset(offset).limit(limit))).all()
 
         return items, total
 
     @staticmethod
-    def get_product_by_id(db: Session, product_id: int) -> Optional[Product]:
+    async def get_product_by_id(db: AsyncSession, product_id: int) -> Optional[Product]:
         """Fetch a single product by ID with its category eagerly loaded."""
-        product_model = db.query(Product).options(joinedload(Product.category)).filter(Product.id==product_id).first()
+        product_model = await db.scalar(select(Product).options(joinedload(Product.category)).where(Product.id==product_id))
         return product_model
 
     @staticmethod
-    def create_product(db: Session, request: ProductCreate):
-        category = db.query(Category).filter(Category.id==request.category_id).first()
+    async def create_product(db: AsyncSession, request: ProductCreate):
+        category = await db.scalar(select(Category).where(Category.id==request.category_id))
         if category is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid category_id")
         
@@ -56,22 +58,22 @@ class ProductService:
         db.add(product)
 
         try:
-            db.commit()
-            db.refresh(product)
+            await db.commit()
+            await db.refresh(product)
         except Exception:
             logger.error("Product create commit failed")
-            db.rollback()
+            await db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
                                 detail="Product create commit failed")
         
-        product = db.query(Product).options(joinedload(Product.category)).filter(Product.id==product.id).first()
+        product = await db.scalar(select(Product).options(joinedload(Product.category)).where(Product.id==product.id))
         return product
     
 
 
     @staticmethod
-    def update_product(db: Session, request: ProductUpdate, product_id: int):
-        product = db.query(Product).filter(Product.id==product_id).first()
+    async def update_product(db: AsyncSession, request: ProductUpdate, product_id: int):
+        product = await db.scalar(select(Product).where(Product.id==product_id))
         if product is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
 
@@ -85,7 +87,7 @@ class ProductService:
             product.stock = request.stock
 
         if request.category_id is not None:
-            category = db.query(Category).filter(Category.id==request.category_id).first()
+            category = await db.scalar(select(Category).where(Category.id==request.category_id))
             if category is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid category_id")
             product.category_id = category.id
@@ -97,33 +99,33 @@ class ProductService:
             product.image_url = request.image_url
 
         try:
-            db.commit()
-            db.refresh(product)
+            await db.commit()
+            await db.refresh(product)
         except Exception:
             logger.error("Product update commit failed")
-            db.rollback()
+            await db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
                                 detail="Product update commit failed")
         
-        product = db.query(Product).options(joinedload(Product.category)).filter(Product.id==product.id).first()
+        product = await db.scalar(select(Product).options(joinedload(Product.category)).where(Product.id==product.id))
         return product
 
     @staticmethod
-    def delete_product(db: Session, product_id: int):
-        product = db.query(Product).filter(Product.id==product_id).first()
+    async def delete_product(db: AsyncSession, product_id: int):
+        product = await db.scalar(select(Product).where(Product.id==product_id))
         if product is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
 
-        order_item_conflict = db.query(OrderItem).filter(OrderItem.product_id==product_id).first()
+        order_item_conflict = await db.scalar(select(OrderItem).where(OrderItem.product_id==product_id))
         if order_item_conflict is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Can't delete an ordered product")
         
-        db.delete(product)
+        await db.delete(product)
 
         try:
-            db.commit()
+            await db.commit()
         except Exception:
             logger.error("Product delete commit failed")
-            db.rollback()
+            await db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
                                 detail="Product delete commit failed")

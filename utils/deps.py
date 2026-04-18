@@ -2,7 +2,7 @@ from core.database import SessionLocal
 from typing import Annotated
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from jose import JWTError, jwt
 from starlette import status
 from core.config import settings
@@ -13,14 +13,14 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-def get_db():
+async def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
-        db.close()
+        await db.close()
 
-db_dependency = Annotated[Session, Depends(get_db)]
+db_dependency = Annotated[AsyncSession, Depends(get_db)]
 
 
 def get_current_user(token: Annotated[str, Depends(OAuth2PasswordBearer(tokenUrl="auth/token"))]):
@@ -50,8 +50,8 @@ def get_current_user(token: Annotated[str, Depends(OAuth2PasswordBearer(tokenUrl
 user_dependency = Annotated[dict, Depends(get_current_user)]
 
 
-def get_current_active_user(db: db_dependency, user: user_dependency):
-    current_user = AuthService.get_active_user_by_id(db=db, user_id=user.get("user_id"))
+async def get_current_active_user(db: db_dependency, user: user_dependency):
+    current_user = await AuthService.get_active_user_by_id(db=db, user_id=user.get("user_id"))
 
     if current_user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -62,7 +62,7 @@ def get_current_active_user(db: db_dependency, user: user_dependency):
 active_user_dependency = Annotated[User, Depends(get_current_active_user)]
 
 
-def get_current_active_admin(db: db_dependency, current_user: active_user_dependency):
+async def get_current_active_admin(db: db_dependency, current_user: active_user_dependency):
     if current_user.role != UserRole.ADMIN:
         logger.warning(
             "Non-admin access attempt on admin endpoint",
@@ -76,7 +76,7 @@ def get_current_active_admin(db: db_dependency, current_user: active_user_depend
 admin_dependency = Annotated[User, Depends(get_current_active_admin)]
 
 
-def get_current_active_customer(db: db_dependency, current_user: active_user_dependency):
+async def get_current_active_customer(db: db_dependency, current_user: active_user_dependency):
     if current_user.role != UserRole.CUSTOMER:
         logger.warning(
             "Non-customer access attempt on customer endpoint",

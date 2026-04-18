@@ -1,3 +1,4 @@
+from sqlalchemy import select, func
 from models.users import User
 from datetime import datetime, UTC, timezone
 
@@ -14,7 +15,7 @@ async def test_register_success(client, session):
     assert "Registration successful" in response.json()["message"]
 
     # Verify user in DB
-    user = session.query(User).filter(User.email == "newuser@example.com").first()
+    user = await session.scalar(select(User).where(User.email == "newuser@example.com"))
     assert user is not None
     assert user.is_verified is False
 
@@ -44,8 +45,8 @@ async def test_register_duplicate(client, session):
     assert response_2.status_code == 400
     
     # Verify it's not duplicated in DB
-    users = session.query(User).filter(User.email == "duplicateuser@example.com").all()
-    assert len(users) == 1
+    result = await session.execute(select(func.count()).select_from(User).where(User.email == "duplicateuser@example.com"))
+    assert result.scalar() == 1
 
 
 async def test_register_email_case_insensitive(client, session):
@@ -82,7 +83,7 @@ async def test_register_invalid_email(client, session):
     assert response.status_code == 422
 
     # Verify it's not added to DB
-    user = session.query(User).filter(User.email == "@incorrectemail.wrong").first()
+    user = await session.scalar(select(User).where(User.email == "@incorrectemail.wrong"))
     assert user is None
 
 
@@ -99,7 +100,7 @@ async def test_register_missing_fields(client, session):
     assert response.status_code == 422
 
     # Verify it's not added to DB
-    user = session.query(User).filter(User.email == "missingfields@email.com").first()
+    user = await session.scalar(select(User).where(User.email == "missingfields@email.com"))
     assert user is None
 
 
@@ -117,7 +118,7 @@ async def test_register_weak_password(client, session):
     assert response.status_code == 422
 
     # Verify it's not added to DB
-    user = session.query(User).filter(User.email == "weakpassword@email.com").first()
+    user = await session.scalar(select(User).where(User.email == "weakpassword@email.com"))
     assert user is None
 
 
@@ -152,7 +153,7 @@ async def test_register_unicode_names(client, session):
     
     assert response.status_code == 201
     
-    user = session.query(User).filter(User.email == "unicode@example.com").first()
+    user = await session.scalar(select(User).where(User.email == "unicode@example.com"))
     assert user.first_name == "José"
     assert user.last_name == "محمد"
 
@@ -171,6 +172,6 @@ async def test_register_email_with_whitespace(client, session):
     assert response.status_code == 201
     
     # Verify it's stored without whitespace
-    user = session.query(User).filter(User.email == "whitespace@example.com").first()
+    user = await session.scalar(select(User).where(User.email == "whitespace@example.com"))
     assert user is not None
     assert user.email == "whitespace@example.com"  # No spaces

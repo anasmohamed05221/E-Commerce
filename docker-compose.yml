@@ -46,6 +46,33 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+        
+  worker:
+    build: .
+    command: celery -A core.celery_app worker --loglevel=info --concurrency=2
+    environment:
+      ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ecommerce
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: localsecretkey
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 15
+      REFRESH_TOKEN_EXPIRE_DAYS: 7
+      MAIL_USERNAME: ""
+      MAIL_PASSWORD: ""
+      MAIL_FROM: ""
+      MAIL_SERVER: ""
+      MAIL_PORT: 587
+      LOG_LEVEL: INFO
+      BASE_URL: http://localhost:8000
+      CORS_ORIGINS: '["http://localhost:3000"]'
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres_data:

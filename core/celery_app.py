@@ -14,8 +14,12 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     task_always_eager=settings.CELERY_TASK_ALWAYS_EAGER,
     result_expires=3600,
-    broker_use_ssl={"ssl_cert_reqs": ssl.CERT_NONE},
-    redis_backend_use_ssl={"ssl_cert_reqs": ssl.CERT_NONE},
 )
+
+if settings.CELERY_BROKER_URL.startswith("rediss://"):
+    celery_app.conf.update(
+        broker_use_ssl={"ssl_cert_reqs": ssl.CERT_NONE},
+        redis_backend_use_ssl={"ssl_cert_reqs": ssl.CERT_NONE},
+    )
 
 celery_app.autodiscover_tasks(["tasks"])

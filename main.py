@@ -136,7 +136,7 @@ async def health_check(db: db_dependency):
         failed = True
 
     try:
-        r = sync_redis.from_url(settings.CELERY_BROKER_URL, ssl_cert_reqs=None)
+        r = sync_redis.from_url(settings.CELERY_BROKER_URL, ssl_cert_reqs="none")
         r.ping()
         r.close()
     except Exception:

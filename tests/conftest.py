@@ -1,6 +1,6 @@
 import os
 os.environ["ENV"] = "testing"
-
+os.environ["CELERY_TASK_ALWAYS_EAGER"] = "True"
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import event

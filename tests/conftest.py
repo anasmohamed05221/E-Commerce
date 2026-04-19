@@ -5,8 +5,6 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.pool import NullPool
-from starlette.middleware.base import BaseHTTPMiddleware
 from utils.hashing import get_password_hash
 from services.token import TokenService
 from models.users import User
@@ -41,7 +39,7 @@ def worker_id(request):
 @pytest.fixture(scope="session")
 async def db_engine(tmp_path_factory, worker_id):
     """Create the async engine and set up schema once per test session."""
-    engine = create_async_engine(SQLALCHEMY_DATABASE_URL, poolclass=NullPool)
+    engine = create_async_engine(SQLALCHEMY_DATABASE_URL)
 
     if worker_id == "master":
         # Running without xdist
@@ -78,7 +76,7 @@ async def db_engine(tmp_path_factory, worker_id):
 #      (not the outer transaction). An event listener immediately opens a
 #      new savepoint so the next commit is also contained.
 #   4. After the test, the outer transaction is ROLLED BACK.
-#      Nothing ever reaches the database, so parallel workers never collide.
+#      Nothing ever reaches the database, so each test starts with a clean state.
 
 @pytest.fixture
 async def connection(db_engine):
@@ -111,27 +109,12 @@ async def client(connection):
     """
     HTTPX test client. The app's get_db dependency is overridden to use
     the same connection, so fixture data and app data share one transaction.
-
-    BaseHTTPMiddleware is stripped from the middleware stack because it spawns
-    call_next in a separate anyio task -- asyncpg connections cannot be shared
-    across task boundaries. ASGI-native middleware (CORS) is kept.
     """
     async def override_get_db():
         async with AsyncSession(bind=connection, expire_on_commit=False) as session:
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
-
-    # Strip BaseHTTPMiddleware variants (RequestIDMiddleware, log_requests)
-    # to avoid asyncpg "Future attached to a different loop" error.
-    original_user_middleware = list(app.user_middleware)
-    original_middleware_stack = app.middleware_stack
-
-    app.user_middleware = [
-        m for m in original_user_middleware
-        if not issubclass(m.cls, BaseHTTPMiddleware)
-    ]
-    app.middleware_stack = app.build_middleware_stack()
 
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -140,8 +123,6 @@ async def client(connection):
         yield ac
 
     app.dependency_overrides.clear()
-    app.user_middleware = original_user_middleware
-    app.middleware_stack = original_middleware_stack
 
 
 # Redis Mock

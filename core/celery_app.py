@@ -1,4 +1,5 @@
 from celery import Celery
+import ssl
 from core.config import settings
 
 celery_app = Celery(
@@ -12,7 +13,9 @@ celery_app.conf.update(
     task_acks_late=True,
     worker_prefetch_multiplier=1,
     task_always_eager=settings.CELERY_TASK_ALWAYS_EAGER,
-    result_expires=3600
+    result_expires=3600,
+    broker_use_ssl={"ssl_cert_reqs": ssl.CERT_NONE},
+    redis_backend_use_ssl={"ssl_cert_reqs": ssl.CERT_NONE},
 )
 
 celery_app.autodiscover_tasks(["tasks"])

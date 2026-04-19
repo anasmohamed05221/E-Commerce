@@ -6,6 +6,7 @@ from routers import auth, users, products, categories, cart, orders, admin_produ
     admin_orders, admin_users, admin_categories, addresses
 from contextlib import asynccontextmanager
 from core.redis_client import redis_client
+from core.celery_app import celery_app
 
 # Import all models for SQLAlchemy relationship resolution
 
@@ -118,7 +119,7 @@ app.add_middleware(RequestIDMiddleware)
 @app.get("/health")
 async def health_check(db: db_dependency):
     """Readiness probe — verifies PostgreSQL and Redis are reachable."""
-    health = {"postgres": "ok", "redis": "ok"}
+    health = {"postgres": "ok", "redis": "ok", "celery_broker": "ok"}
     failed = False
 
     try:
@@ -131,6 +132,14 @@ async def health_check(db: db_dependency):
         await redis_client.redis.ping()
     except Exception:
         health["redis"] = "unavailable"
+        failed = True
+
+    try:
+        conn = celery_app.connection()
+        conn.ensure_connection(max_retries=1)
+        conn.close()
+    except Exception:
+        health["celery_broker"] = "unavailable"
         failed = True
 
     if failed:

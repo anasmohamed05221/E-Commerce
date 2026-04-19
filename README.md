@@ -72,9 +72,6 @@ Stock decrement, order creation, cart clear, and inventory log all commit in a s
 **🔒 Race conditions are prevented at the database level.**
 Checkout and order cancellation use `SELECT FOR UPDATE` (pessimistic locking) to acquire a row-level lock before reading stock. Two concurrent checkouts for the same product cannot both succeed on 1 unit of stock.
 
-**🛡️ Tokens are never stored in plaintext.**
-Refresh tokens, password reset tokens, and password change tokens are all hashed with SHA-256 before being written to the database. The raw token travels over the wire once, only its hash lives in the DB. Passwords use bcrypt.
-
 **🔄 Token rotation with reuse detection.**
 On every refresh, the old token is revoked and a new pair is issued. Presenting a revoked token is treated as a security event.
 
@@ -90,14 +87,17 @@ On every refresh, the old token is revoked and a new pair is issued. Presenting 
 **⚡ Redis for caching and rate limiting.**
 Category listings are cached with a 1-hour TTL (cache-aside pattern). Every write explicitly invalidates the cache, stale data is never served after a mutation. Rate limiting counters live in Redis too, shared across all Gunicorn workers so a user can't bypass limits by hitting different processes.
 
-**📄 Paginated responses on every list endpoint.**
+**🔀 Full async data layer (dedicated refactor story).**
+The data access layer was migrated from sync SQLAlchemy 1.x to async SQLAlchemy 2.0 as a deliberate refactor between Epic 1 (MVP) and Epic 2. The decision was to pay the migration cost once, on a stable foundation, rather than retrofit under feature pressure. Now the whole stack runs on one event loop: async routes, async ORM (asyncpg driver), async Redis, async HTTP.
+
+**📄 Paginated responses on list endpoints.**
 Products, orders, and admin views all return `{ items, total, limit, offset }`. Callers can page through large datasets without pulling unbounded result sets. Product browsing also supports filters: `category_id`, `min_price`, `max_price`.
 
 **🖥️ Logging is structured and environment-aware.**
 Every request is logged as JSON with a unique request ID, status code, duration, and client IP. Production logs go to stdout only (12-Factor App); development logs go to rotating files.
 
 **🧪 The test suite is engineered, not just functional.**
-412 tests across unit, integration, and API layers, running in ~12s. Each test runs in a savepoint that rolls back on completion (no DDL overhead per test). Parallel execution via `pytest-xdist` with worker-scoped fixtures to prevent unique-constraint collisions. No bcrypt cost per test, passwords pre-hashed once at module load. Before optimization: 194 tests in ~70s. After: 412 tests in ~12s.
+412 tests across unit, integration, and API layers, running in ~11s. Each test runs in a savepoint that rolls back on completion (no DDL overhead per test). Parallel execution via `pytest-xdist` with worker-scoped fixtures to prevent unique-constraint collisions. No bcrypt cost per test, passwords pre-hashed once at module load. Before optimization: 194 tests in ~70s. After: 412 tests in ~11s.
 
 ---
 
@@ -109,7 +109,7 @@ Request
         └── Router     (HTTP contract · status codes · dependency injection)
               └── Schema     (Pydantic validation · request parsing · response shaping)
                     └── Service    (business logic · authorization · DB transactions)
-                          └── Model      (SQLAlchemy ORM → PostgreSQL)
+                          └── Model      (async SQLAlchemy 2.0 → asyncpg → PostgreSQL)
 ```
 
 Hard rules enforced throughout:
@@ -242,10 +242,12 @@ The setup is engineered, not just functional:
 
 - **Transactional isolation** : schema created once per session, each test runs in a savepoint that rolls back on completion. No DDL overhead per test.
 - **Parallel execution** : `pytest-xdist` with filelock-guarded DDL. One worker creates the schema; all others reuse it concurrently.
+- **Fully async fixtures** : all fixtures use `AsyncSession` with `pytest-asyncio`, matching the production data layer.
+- **Connection isolation** : each test gets its own connection from the pool via the `connection` fixture; a `ROLLBACK` after each test returns it clean. No connection contamination between tests.
 - **No bcrypt in fixtures** : passwords pre-hashed once at module load. JWT tokens generated directly without HTTP round-trips. Bcrypt cost is not paid on every test.
 - **Worker-scoped emails** : fixture emails include the xdist worker ID, preventing unique-constraint collisions under parallel execution.
 
-> Before optimization: 194 tests in ~70s, After: 412 tests in ~12s
+> Before optimization: 194 tests in ~70s, After: 412 tests in ~11s
 
 ---
 
@@ -262,7 +264,7 @@ Domains: `auth` · `users` · `addresses` · `products` · `categories` · `cart
 | Layer | Technology |
 |---|---|
 | Framework | FastAPI + Uvicorn |
-| Database | PostgreSQL + SQLAlchemy 2.0 + Alembic |
+| Database | PostgreSQL + async SQLAlchemy 2.0 (asyncpg) + Alembic |
 | Cache | Redis async, cache-aside pattern, write-through invalidation |
 | Auth | python-jose (JWT) + passlib (bcrypt) + SHA-256 token hashing |
 | Validation | Pydantic v2 + email-validator + phonenumbers (E.164) |
@@ -339,8 +341,12 @@ python -m scripts.seed_admin
 - [x] Dockerized: Dockerfile, docker-compose, entrypoint.sh
 - [x] Deployed to Render, managed PostgreSQL + Redis, HTTPS, auto-deploy from main
 
+**Async SQLAlchemy Migration** ✅ shipped
+- [x] Full data access layer migrated to async SQLAlchemy 2.0 (`create_async_engine`, `AsyncSession`, `select()` API)
+- [x] All service methods async, all routes back to `async def`, explicit `selectinload`/`joinedload`
+- [x] Alembic env.py, all test fixtures and conftest converted to async equivalents
+
 **Planned**
-- Async SQLAlchemy migration (`create_async_engine`, `AsyncSession`, `select()` API)
 - Stripe payments + webhooks, Celery task queue, order confirmation emails, coupons
 - OAuth login, reviews and ratings, wishlist, shipment tracking, in-app notifications
 - Typesense product search with filters and typo tolerance
@@ -349,11 +355,6 @@ python -m scripts.seed_admin
 
 <details>
 <summary>Full roadmap breakdown</summary>
-
-**Async SQLAlchemy Migration** *(before Epic 2)*
-- [ ] Migrate from sync to async SQLAlchemy (`create_async_engine`, `AsyncSession`, `select()` API)
-- [ ] Convert all service methods to async, all routes back to `async def`
-- [ ] Update Alembic env.py, all test fixtures and conftest to async equivalents
 
 **Epic 2: Payments & Background Jobs**
 - [ ] Stripe integration (checkout session + webhooks)

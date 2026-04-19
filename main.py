@@ -136,7 +136,7 @@ async def health_check(db: db_dependency):
 
     try:
         conn = celery_app.connection()
-        conn.ensure_connection(max_retries=1)
+        conn.ensure_connection(max_retries=1, timeout=3)
         conn.close()
     except Exception:
         health["celery_broker"] = "unavailable"

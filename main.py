@@ -6,8 +6,8 @@ from routers import auth, users, products, categories, cart, orders, admin_produ
     admin_orders, admin_users, admin_categories, addresses
 from contextlib import asynccontextmanager
 from core.redis_client import redis_client
+import redis.asyncio as aioredis
 from core.celery_app import celery_app
-import redis as sync_redis
 
 # Import all models for SQLAlchemy relationship resolution
 
@@ -136,9 +136,9 @@ async def health_check(db: db_dependency):
         failed = True
 
     try:
-        r = sync_redis.from_url(settings.CELERY_BROKER_URL, ssl_cert_reqs="none")
-        r.ping()
-        r.close()
+        broker_redis = aioredis.from_url(settings.CELERY_BROKER_URL)
+        await broker_redis.ping()
+        await broker_redis.aclose()
     except Exception:
         health["celery_broker"] = "unavailable"
         failed = True

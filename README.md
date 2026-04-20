@@ -113,7 +113,9 @@ Request
                           └── Model      (async SQLAlchemy 2.0 → asyncpg → PostgreSQL)
 
 Background jobs
-  FastAPI (producer) → Upstash Redis (broker) → Celery worker on Railway (consumer)
+  FastAPI (producer) → Upstash Redis (broker) → Celery worker (consumer, co-located in Render container)
+
+> The Celery worker runs in the same container as the web process due to free-tier constraints, not by design. The producer/broker/consumer separation is fully intact.
 ```
 
 Hard rules enforced throughout:
@@ -278,7 +280,7 @@ Domains: `auth` · `users` · `addresses` · `products` · `categories` · `cart
 | Logging | Structured JSON · rotating file handlers · request ID tracing |
 | Containerization | Docker · docker-compose (local multi-service parity) |
 | Testing | pytest + pytest-asyncio + httpx + pytest-xdist |
-| CI/CD | GitHub Actions CI · Render (web service, auto-deploy from main) · Railway (Celery worker) |
+| CI/CD | GitHub Actions CI · Render (web + Celery worker in same container, auto-deploy from main) |
 | Linting | Ruff |
 
 ---
@@ -352,7 +354,7 @@ python -m scripts.seed_admin
 - [x] RBAC, rate limiting, structured logging, health checks
 - [x] 412 tests · GitHub Actions CI
 - [x] Dockerized: Dockerfile, docker-compose, entrypoint.sh
-- [x] Deployed to Render (web + managed PostgreSQL) + Railway (Celery worker) + Upstash Redis, HTTPS, auto-deploy from main
+- [x] Deployed to Render (web + managed PostgreSQL + Celery worker co-located) + Upstash Redis, HTTPS, auto-deploy from main
 
 **Async SQLAlchemy Migration** ✅ shipped
 - [x] Full data access layer migrated to async SQLAlchemy 2.0 (`create_async_engine`, `AsyncSession`, `select()` API)

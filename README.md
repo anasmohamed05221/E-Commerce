@@ -83,7 +83,7 @@ Built as a deliberate learning exercise to practice backend engineering the way 
 
 ---
 
-## Architecture
+## System Design
 
 ```mermaid
 flowchart TD

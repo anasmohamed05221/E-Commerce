@@ -110,6 +110,9 @@ Request
               └── Schema     (Pydantic validation · request parsing · response shaping)
                     └── Service    (business logic · authorization · DB transactions)
                           └── Model      (async SQLAlchemy 2.0 → asyncpg → PostgreSQL)
+
+Background jobs
+  FastAPI (producer) → Upstash Redis (broker) → Celery worker on Railway (consumer)
 ```
 
 Hard rules enforced throughout:
@@ -265,7 +268,8 @@ Domains: `auth` · `users` · `addresses` · `products` · `categories` · `cart
 |---|---|
 | Framework | FastAPI + Uvicorn |
 | Database | PostgreSQL + async SQLAlchemy 2.0 (asyncpg) + Alembic |
-| Cache | Redis async, cache-aside pattern, write-through invalidation |
+| Cache & Broker | Upstash Redis (async, cache-aside pattern, write-through invalidation; also Celery broker + result backend) |
+| Task Queue | Celery 5.5 + Upstash Redis (broker + result backend), JSON serializer, at-least-once delivery |
 | Auth | python-jose (JWT) + passlib (bcrypt) + SHA-256 token hashing |
 | Validation | Pydantic v2 + email-validator + phonenumbers (E.164) |
 | Rate Limiting | SlowAPI is Redis-backed, multi-worker safe |
@@ -273,7 +277,7 @@ Domains: `auth` · `users` · `addresses` · `products` · `categories` · `cart
 | Logging | Structured JSON · rotating file handlers · request ID tracing |
 | Containerization | Docker · docker-compose (local multi-service parity) |
 | Testing | pytest + pytest-asyncio + httpx + pytest-xdist |
-| CI/CD | GitHub Actions CI · Render auto-deploy from main |
+| CI/CD | GitHub Actions CI · Render (web service, auto-deploy from main) · Railway (Celery worker) |
 | Linting | Ruff |
 
 ---
@@ -288,7 +292,15 @@ cd E-Commerce
 docker-compose up --build
 ```
 
-App runs at `http://localhost:8000`. Migrations run automatically on startup.
+App runs at `http://localhost:8000`. Migrations run automatically on startup. The `worker` service starts automatically alongside the app.
+
+**Running the Celery worker locally (without Docker)**
+
+```bash
+celery -A core.celery_app worker --loglevel=info
+```
+
+> Tests do not require a running worker. `CELERY_TASK_ALWAYS_EAGER=True` is set in the test environment, so tasks execute inline without touching the broker.
 
 **Option 2: Local**
 
@@ -339,7 +351,7 @@ python -m scripts.seed_admin
 - [x] RBAC, rate limiting, structured logging, health checks
 - [x] 412 tests · GitHub Actions CI
 - [x] Dockerized: Dockerfile, docker-compose, entrypoint.sh
-- [x] Deployed to Render, managed PostgreSQL + Redis, HTTPS, auto-deploy from main
+- [x] Deployed to Render (web + managed PostgreSQL) + Railway (Celery worker) + Upstash Redis, HTTPS, auto-deploy from main
 
 **Async SQLAlchemy Migration** ✅ shipped
 - [x] Full data access layer migrated to async SQLAlchemy 2.0 (`create_async_engine`, `AsyncSession`, `select()` API)
@@ -358,10 +370,12 @@ python -m scripts.seed_admin
 
 **Epic 2: Payments & Background Jobs**
 - [ ] Stripe integration (checkout session + webhooks)
-- [ ] Celery + Redis task queue for async background jobs
+- [x] Celery + Upstash Redis task queue infrastructure (worker deployed on Railway)
+- [ ] Move emails to Celery (verification, password reset)
 - [ ] Order confirmation email on payment
 - [ ] Coupons and promo codes (fixed + percentage discounts, expiry, min order value)
 - [ ] Coupon management (admin: create, disable, list)
+- [ ] Smart Cart Insight Engine: rule-based backend service that analyzes the cart in real time and returns max 3 prioritized insights (free shipping nudge, bundle suggestion, cheaper alternative, coupon hint) alongside the cart response. All four rules are backed by real data via a `product_relationships` table (`BUNDLE` / `ALTERNATIVE`). Capstone story for Epic 2.
 
 **Epic 3: Engagement & Fulfillment**
 - [ ] OAuth login (Google / Apple / Facebook)

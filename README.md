@@ -35,7 +35,7 @@ Built as a deliberate learning exercise to practice backend engineering the way 
 
 ## Features
 
-### 👤 Auth & Identity
+**👤 Auth & Identity**
 - Email registration with 6-digit verification code (10-minute expiry)
 - Login with short-lived JWT access tokens + long-lived refresh tokens
 - Token rotation on every refresh: old token revoked, reuse rejected
@@ -44,7 +44,7 @@ Built as a deliberate learning exercise to practice backend engineering the way 
 - Logout: single session or all devices at once
 - Profile update (name, phone number) and self-deactivation
 
-### 🛍️ Shopping
+**🛍️ Shopping**
 - Browse products with `category`, `min_price`, `max_price` filters and pagination
 - View individual product details
 - Manage cart: add, update quantity, remove items, or clear all
@@ -53,7 +53,7 @@ Built as a deliberate learning exercise to practice backend engineering the way 
 - View paginated order history and individual order details
 - Cancel eligible orders (PENDING status only)
 
-### 🔧 Admin
+**🔧 Admin**
 - Full product and category CRUD
 - View all orders across the platform with pagination
 - Drive orders through the status lifecycle (PENDING → CONFIRMED → SHIPPED → COMPLETED)
@@ -67,55 +67,45 @@ Built as a deliberate learning exercise to practice backend engineering the way 
 
 > Decisions that shaped the system, and why they were made.
 
-**⚛️ Checkout is atomic or it doesn't happen.**
-Stock decrement, order creation, cart clear, and inventory log all commit in a single transaction. If any step fails, everything rolls back. No partial orders, no phantom stock.
-
-**🔒 Race conditions are prevented at the database level.**
-Checkout and order cancellation use `SELECT FOR UPDATE` (pessimistic locking) to acquire a row-level lock before reading stock. Two concurrent checkouts for the same product cannot both succeed on 1 unit of stock.
-
-**🔄 Token rotation with reuse detection.**
-On every refresh, the old token is revoked and a new pair is issued. Presenting a revoked token is treated as a security event.
-
-**⚙️ Order status follows a strict FSM.**
-`PENDING → CONFIRMED → SHIPPED → COMPLETED`. Skipping states or moving backwards raises a 409. Cancellation is a separate path with different rules for customers vs. admins.
-
-**💰 Price snapshots at purchase time.**
-`order_items.price_at_time` captures the product price at checkout. Changing a product price never retroactively affects existing orders.
-
-**📋 Every stock change is audited.**
-`inventory_changes` logs every increment and decrement with a reason (`SALE`, `CANCELLATION`, `RESTOCK`, `ADJUSTMENT`, `RETURN`). Stock is never mutated silently.
-
-**⚡ Redis for caching and rate limiting.**
-Category listings are cached with a 1-hour TTL (cache-aside pattern). Every write explicitly invalidates the cache, stale data is never served after a mutation. Rate limiting counters live in Redis too, shared across all Gunicorn workers so a user can't bypass limits by hitting different processes.
-
-**🔀 Full async data layer (dedicated refactor story).**
-The data access layer was migrated from sync SQLAlchemy 1.x to async SQLAlchemy 2.0 as a deliberate refactor between Epic 1 (MVP) and Epic 2. The decision was to pay the migration cost once, on a stable foundation, rather than retrofit under feature pressure. Now the whole stack runs on one event loop: async routes, async ORM (asyncpg driver), async Redis, async HTTP.
-
-**📄 Paginated responses on list endpoints.**
-Products, orders, and admin views all return `{ items, total, limit, offset }`. Callers can page through large datasets without pulling unbounded result sets. Product browsing also supports filters: `category_id`, `min_price`, `max_price`.
-
-**🖥️ Logging is structured and environment-aware.**
-Every request is logged as JSON with a unique request ID, status code, duration, and client IP. Production logs go to stdout only (12-Factor App); development logs go to rotating files.
-
-**🧪 The test suite is engineered, not just functional.**
-412 tests across unit, integration, and API layers, running in ~11s. Each test runs in a savepoint that rolls back on completion (no DDL overhead per test). Parallel execution via `pytest-xdist` with worker-scoped fixtures to prevent unique-constraint collisions. No bcrypt cost per test, passwords pre-hashed once at module load. Before optimization: 194 tests in ~70s. After: 412 tests in ~11s.
+| | |
+|---|---|
+| ⚛️ **Atomic checkout** | Stock decrement, order creation, cart clear, and inventory log commit in one transaction. Any failure rolls everything back. No partial orders, no phantom stock. |
+| 🔒 **Race conditions prevented at the DB level** | Checkout uses `SELECT FOR UPDATE` to lock the product row before reading stock. Two concurrent checkouts for the last unit cannot both succeed. |
+| 🔄 **Token rotation with reuse detection** | On every refresh, the old token is revoked and a new pair issued. Presenting a revoked token is treated as a security event. |
+| 🔀 **Full async data layer** | Entire stack runs on one event loop: async routes, async SQLAlchemy 2.0 (asyncpg), async Redis. Migrated as a dedicated refactor story before adding Stripe and Celery. |
+| 🧪 **Test suite engineered for speed** | 412 tests in ~11s. Savepoint-based isolation, parallel execution via `pytest-xdist`, passwords pre-hashed once at module load. Was 194 tests in ~70s before optimization. |
+| ⚙️ **Order status FSM** | `PENDING → CONFIRMED → SHIPPED → COMPLETED`. Skipping or reversing states raises a 409. Cancellation is a separate path with different rules per role. |
+| 💰 **Price snapshots at purchase time** | `order_items.price_at_time` captures the price at checkout. Changing a product price never affects existing orders. |
+| ⚡ **Redis for caching and rate limiting** | Cache-aside pattern with explicit invalidation on writes. Rate limiting counters shared across Gunicorn workers so limits cannot be bypassed. |
+| 🖥️ **Structured logging with request tracing** | Every request logged as JSON with a unique request ID, status code, duration, and client IP. Stdout-only in production (12-Factor App). |
+| 📋 **Inventory fully audited** | Every stock change logged in `inventory_changes` with a typed reason (`SALE`, `CANCELLATION`, `RESTOCK`, `ADJUSTMENT`, `RETURN`). Stock is never mutated silently. |
+| 📬 **Async task queue** | Celery + Redis implements producer/broker/consumer separation. Slow jobs run off the request path with at-least-once delivery and JSON serialization. |
 
 ---
 
 ## Architecture
 
-```
-Request
-  └── Middleware  (structured logging · request ID tracing · rate limiting · CORS)
-        └── Router     (HTTP contract · status codes · dependency injection)
-              └── Schema     (Pydantic validation · request parsing · response shaping)
-                    └── Service    (business logic · authorization · DB transactions)
-                          └── Model      (async SQLAlchemy 2.0 → asyncpg → PostgreSQL)
+```mermaid
+flowchart TD
+    Client([Client]) --> MW
 
-Background jobs
-  FastAPI (producer) → Upstash Redis (broker) → Celery worker (consumer, co-located in Render container)
+    subgraph Render Container
+        MW[Middleware\nlogging · rate limiting · CORS · request ID]
+        MW --> Router[Router\nHTTP contract · status codes · DI]
+        Router --> Schema[Schema\nPydantic validation · request parsing]
+        Schema --> Service[Service\nbusiness logic · auth · DB transactions]
+        Service --> Model[Model\nasync SQLAlchemy 2.0 + asyncpg]
+        Model --> PG[(PostgreSQL)]
 
-> The Celery worker runs in the same container as the web process due to free-tier constraints, not by design. The producer/broker/consumer separation is fully intact.
+        Service --> Redis[(Upstash Redis\ncache · rate limiter · broker)]
+
+        Worker[Celery Worker\nconsumer]
+    end
+
+    Redis -->|broker| Worker
+
+    classDef note fill:#fff9c4,stroke:#f9a825,color:#333
+    note["`The Celery worker runs in the same container as the web process due to free-tier constraints, not by design. The producer/broker/consumer separation is fully intact.`"]:::note
 ```
 
 Hard rules enforced throughout:

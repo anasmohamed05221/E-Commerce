@@ -87,25 +87,29 @@ Built as a deliberate learning exercise to practice backend engineering the way 
 
 ```mermaid
 flowchart TD
-    Client([Client]) --> MW
+    Client([Client])
 
-    subgraph Render Container
+    subgraph Render App Container
         MW[Middleware\nlogging · rate limiting · CORS · request ID]
-        MW --> Router[Router\nHTTP contract · status codes · DI]
-        Router --> Schema[Schema\nPydantic validation · request parsing]
-        Schema --> Service[Service\nbusiness logic · auth · DB transactions]
-        Service --> Model[Model\nasync SQLAlchemy 2.0 + asyncpg]
-        Model --> PG[(PostgreSQL)]
-
-        Service --> Redis[(Upstash Redis\ncache · rate limiter · broker)]
-
-        Worker[Celery Worker\nconsumer]
+        Router[Router\nHTTP contract · status codes · DI]
+        Schema[Schema\nPydantic validation · request parsing]
+        Service[Service\nbusiness logic · auth · DB transactions]
+        Model[Model\nasync SQLAlchemy 2.0 + asyncpg]
+        Worker[Celery Worker]
     end
 
-    Redis -->|broker| Worker
+    subgraph Render Managed
+        PG[(PostgreSQL)]
+    end
 
-    classDef note fill:#fff9c4,stroke:#f9a825,color:#333
-    note["`The Celery worker runs in the same container as the web process due to free-tier constraints, not by design. The producer/broker/consumer separation is fully intact.`"]:::note
+    subgraph Upstash
+        Redis[(Redis\ncache · rate limiter · broker)]
+    end
+
+    Client --> MW
+    MW --> Router --> Schema --> Service --> Model --> PG
+    Service --> Redis
+    Redis -->|broker| Worker
 ```
 
 Hard rules enforced throughout:

@@ -1,7 +1,8 @@
 import pytest
+from unittest.mock import patch
 from schemas.auth import CreateUserRequest
 from services.auth import AuthService
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import HTTPException
 
 
 async def test_authenticate_user_success(session):
@@ -13,8 +14,8 @@ async def test_authenticate_user_success(session):
         password="SecurePass123!",
         phone_number="+201111111111"
     )
-    bg = BackgroundTasks()
-    created_user = await AuthService.create_user(user_data, session, bg)
+    with patch("tasks.email.send_email_task.delay"):
+        created_user = await AuthService.create_user(user_data, session)
     created_user.is_verified = True
     await session.commit()
 
@@ -31,8 +32,8 @@ async def test_login_unverified_user(session):
         password="SecurePass123!",
         phone_number="+201111111111"
     )
-    bg = BackgroundTasks()
-    await AuthService.create_user(user_data, session, bg)
+    with patch("tasks.email.send_email_task.delay"):
+        await AuthService.create_user(user_data, session)
 
     with pytest.raises(HTTPException) as exc_info:
         await AuthService.authenticate_user("unverified_test@example.com", "SecurePass123!", session)
@@ -50,8 +51,8 @@ async def test_authenticate_user_wrong_password(session):
         password="SecurePass123!",
         phone_number="+201111111111"
     )
-    bg = BackgroundTasks()
-    created_user = await AuthService.create_user(user_data, session, bg)
+    with patch("tasks.email.send_email_task.delay"):
+        created_user = await AuthService.create_user(user_data, session)
     created_user.is_verified = True
     await session.commit()
 
@@ -69,8 +70,8 @@ async def test_login_inactive_user(session):
         password="SecurePass123!",
         phone_number="+201111111111"
     )
-    bg = BackgroundTasks()
-    created_user = await AuthService.create_user(user_data, session, bg)
+    with patch("tasks.email.send_email_task.delay"):
+        created_user = await AuthService.create_user(user_data, session)
     created_user.is_verified = True
     created_user.is_active = False
     await session.commit()

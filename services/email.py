@@ -3,14 +3,9 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from core.config import settings
 from utils.logger import get_logger
-import logging
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
 
-# Setup logger
 logger = get_logger(__name__)
 
-@retry(stop=stop_after_attempt(3), retry=retry_if_exception_type(smtplib.SMTPException),
-       wait=wait_exponential(min=1, max=10), before_sleep=before_sleep_log(logger, logging.WARNING))
 def send_email(to_email: str, subject: str, body: str):
     """Send an HTML email via SMTP. Skipped in test environment."""
     # Skip email sending in test environment

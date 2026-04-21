@@ -1,9 +1,9 @@
 import pytest
+from unittest.mock import patch
 from sqlalchemy import select
 from models.users import User
 from schemas.auth import CreateUserRequest
 from services.auth import AuthService
-from fastapi import BackgroundTasks
 
 
 async def test_get_user_by_email(session):
@@ -15,8 +15,8 @@ async def test_get_user_by_email(session):
         password="password123",
         phone_number="+201234567890"
     )
-    bg = BackgroundTasks()
-    await AuthService.create_user(user_data, session, bg)
+    with patch("tasks.email.send_email_task.delay"):
+        await AuthService.create_user(user_data, session)
 
     found_user = await session.scalar(select(User).where(User.email == "find@example.com"))
 
@@ -35,8 +35,8 @@ async def test_deactivate_user(session):
         password="password123",
         phone_number="+201111111111"
     )
-    bg = BackgroundTasks()
-    created_user = await AuthService.create_user(user_data, session, bg)
+    with patch("tasks.email.send_email_task.delay"):
+        created_user = await AuthService.create_user(user_data, session)
 
     created_user.is_active = False
     await session.commit()

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status, Request, BackgroundTasks
+from fastapi import APIRouter, status, Request
 from utils.deps import db_dependency, active_user_dependency
 from schemas.users import UserOut, PasswordChangeToken, UpdateProfileRequest
 from schemas.auth import ChangePasswordRequest, DeactivateUserRequest
@@ -33,9 +33,9 @@ async def update_profile(request: Request, db: db_dependency, current_user: acti
 @router.put("/me/password", status_code=status.HTTP_200_OK)
 @limiter.limit("2/minute")
 async def change_password_request(request: Request, body: ChangePasswordRequest,
-                                   current_user: active_user_dependency, db: db_dependency, bg: BackgroundTasks):
+                                   current_user: active_user_dependency, db: db_dependency):
     """Request password change. Sends confirmation email."""
-    await UserService.request_password_change(db, current_user, body.current_password, body.new_password, bg)
+    await UserService.request_password_change(db, current_user, body.current_password, body.new_password)
     return {"message": "Confirmation email sent. Please check your inbox."}
 
 
@@ -47,9 +47,9 @@ async def confirm_password_change(token_body: PasswordChangeToken, db: db_depend
 
 
 @router.post("/deny-password-change", status_code=status.HTTP_200_OK)
-async def deny_password_change(token_body: PasswordChangeToken, db: db_dependency, bg: BackgroundTasks):
+async def deny_password_change(token_body: PasswordChangeToken, db: db_dependency):
     """Deny password change and logout all sessions (public endpoint)."""
-    await UserService.deny_password_change(db, token_body.token, bg)
+    await UserService.deny_password_change(db, token_body.token)
     return {"message": "Password change cancelled. All sessions logged out."}
 
 

@@ -4,9 +4,8 @@ from schemas.auth import CreateUserRequest
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from utils.verification import generate_verification_code, get_code_expiry_time
-from services.email import send_email
 from utils.email_templates import verification_email, password_reset_email
-from fastapi import HTTPException, BackgroundTasks
+from fastapi import HTTPException
 from starlette import status
 from utils.logger import get_logger
 from schemas.auth import VerifyEmailRequest
@@ -14,13 +13,14 @@ from datetime import datetime, timezone, timedelta
 from core.config import settings
 from services.token import TokenService
 import secrets
+from tasks.email import send_email_task
 
 logger = get_logger(__name__)
 
 class AuthService:
 
     @staticmethod
-    async def create_user(request: CreateUserRequest, db: AsyncSession, bg: BackgroundTasks):
+    async def create_user(request: CreateUserRequest, db: AsyncSession):
         """
         Creates a new user and sends verification email.
 
@@ -64,7 +64,7 @@ class AuthService:
             raise
 
         subject = "Verify Your Email - E-commerce App"
-        bg.add_task(send_email, to_email=request.email, subject=subject, body=verification_email(code))
+        send_email_task.delay(model.email, subject, verification_email(code))
 
         await db.refresh(model)
         return model
@@ -157,7 +157,7 @@ class AuthService:
         return model
 
     @staticmethod
-    async def forgot_password(db: AsyncSession, email: str, bg: BackgroundTasks) -> None:
+    async def forgot_password(db: AsyncSession, email: str) -> None:
         """Generate a password reset token and dispatch a reset email.
 
         Silent no-op for unknown emails — prevents user enumeration.
@@ -181,7 +181,9 @@ class AuthService:
             raise
 
         reset_url = f"{settings.BASE_URL}/auth/reset-password?token={reset_token}"
-        bg.add_task(send_email, to_email=model.email, subject="Reset Your Password", body=password_reset_email(reset_url))
+
+        subject = "Reset Your Password"
+        send_email_task.delay(model.email, subject, password_reset_email(reset_url))
 
         logger.info("Password reset email sent", extra={"user_id": model.id, "email": model.email})
 

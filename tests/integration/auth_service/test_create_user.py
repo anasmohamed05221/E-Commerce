@@ -1,9 +1,10 @@
 import pytest
+from unittest.mock import patch
 from sqlalchemy import select
 from models.users import User
 from schemas.auth import CreateUserRequest
 from services.auth import AuthService
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import HTTPException
 
 
 async def test_create_user(session):
@@ -15,8 +16,8 @@ async def test_create_user(session):
         password="SecurePass123!",
         phone_number="+201111111111"
     )
-    bg = BackgroundTasks()
-    created_user = await AuthService.create_user(user_data, session, bg)
+    with patch("tasks.email.send_email_task.delay"):
+        created_user = await AuthService.create_user(user_data, session)
 
     assert created_user.id is not None
     assert created_user.email == "test@example.com"
@@ -37,11 +38,10 @@ async def test_create_user_duplicate_email(session):
         password="password123",
         phone_number="+201111111111"
     )
-    bg = BackgroundTasks()
-    await AuthService.create_user(user_data, session, bg)
-
-    with pytest.raises(HTTPException) as exc_info:
-        await AuthService.create_user(user_data, session, bg)
+    with patch("tasks.email.send_email_task.delay"):
+        await AuthService.create_user(user_data, session)
+        with pytest.raises(HTTPException) as exc_info:
+            await AuthService.create_user(user_data, session)
 
     assert exc_info.value.status_code == 400
     assert "already registered" in exc_info.value.detail.lower()

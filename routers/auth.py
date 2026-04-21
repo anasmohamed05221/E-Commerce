@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from utils.deps import db_dependency
 from starlette import status
@@ -21,9 +21,9 @@ router = APIRouter(
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 @limiter.limit("3/minute")
-async def create_user(request: Request, body: CreateUserRequest, db: db_dependency, bg: BackgroundTasks):
+async def create_user(request: Request, body: CreateUserRequest, db: db_dependency):
     """Register a new user and send verification email."""
-    user = await AuthService.create_user(body, db, bg)
+    user = await AuthService.create_user(body, db)
 
     logger.info(
         "User registered successfully",
@@ -104,9 +104,9 @@ async def logout(request: Request, body: RevokeTokenRequest, db: db_dependency):
 
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
 @limiter.limit("3/minute")
-async def forgot_password_request(request: Request, body: ForgotPasswordRequest, db: db_dependency, bg: BackgroundTasks):
+async def forgot_password_request(request: Request, body: ForgotPasswordRequest, db: db_dependency):
     """Request password reset via email."""
-    await AuthService.forgot_password(db, body.email, bg)
+    await AuthService.forgot_password(db, body.email)
     return {"message": "If that email exists, a reset link has been sent."}
 
 

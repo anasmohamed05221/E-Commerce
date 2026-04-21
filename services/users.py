@@ -1,18 +1,18 @@
 import secrets
 from datetime import datetime, timezone, timedelta
 
-from fastapi import HTTPException, status, BackgroundTasks
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from models.users import User
 from models.enums import UserRole
-from services.email import send_email
 from schemas.users import UpdateProfileRequest
 from utils.email_templates import password_change_request_email, password_change_denied_email
 from services.token import TokenService
 from core.config import settings
 from utils.hashing import verify_password, get_password_hash, hash_token
+from tasks.email import send_email_task
 
 from typing import Optional
 
@@ -24,7 +24,7 @@ logger = get_logger(__name__)
 class UserService:
 
     @staticmethod
-    async def request_password_change(db: AsyncSession, current_user: User, current_password: str, new_password: str, bg: BackgroundTasks) -> None:
+    async def request_password_change(db: AsyncSession, current_user: User, current_password: str, new_password: str) -> None:
         """Validate current password, store pending hash, and dispatch confirmation email."""
         if not verify_password(current_password, current_user.hashed_password):
             logger.warning("Password change rejected — incorrect current password", extra={"user_id": current_user.id})
@@ -47,9 +47,8 @@ class UserService:
         confirm_url = f"{settings.BASE_URL}/users/confirm-password-change?token={confirmation_token}"
         deny_url = f"{settings.BASE_URL}/users/deny-password-change?token={confirmation_token}"
 
-        bg.add_task(send_email, to_email=current_user.email,
-                    subject="Confirm Password Change",
-                    body=password_change_request_email(confirm_url, deny_url))
+        subject="Confirm Password Change"
+        send_email_task.delay(current_user.email, subject, password_change_request_email(confirm_url, deny_url))
 
 
     @staticmethod
@@ -84,7 +83,7 @@ class UserService:
 
 
     @staticmethod
-    async def deny_password_change(db: AsyncSession, token: str, bg: BackgroundTasks) -> None:
+    async def deny_password_change(db: AsyncSession, token: str) -> None:
         """Cancel pending password change, revoke all sessions, and send security alert."""
         user = await db.scalar(select(User).where(
             User.password_change_token == hash_token(token)
@@ -107,9 +106,8 @@ class UserService:
 
         await TokenService.revoke_all_user_tokens(user.id, db)
 
-        bg.add_task(send_email, to_email=user.email,
-                    subject="Security Alert: Password Change Denied",
-                    body=password_change_denied_email())
+        subject="Security Alert: Password Change Denied"
+        send_email_task.delay(user.email, subject, password_change_denied_email())
 
 
     @staticmethod

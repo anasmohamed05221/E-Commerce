@@ -1,18 +1,18 @@
 import pytest
 from datetime import datetime, timezone, timedelta
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import HTTPException
+from unittest.mock import patch
 from services.users import UserService
 from utils.hashing import verify_password
 
 
 async def _setup_pending_change(session, user):
     """Helper: put user into pending password change state. Returns the RAW token."""
-    from unittest.mock import patch
     import secrets as _secrets
     raw_token = _secrets.token_urlsafe(32)
     with patch("services.users.secrets.token_urlsafe", return_value=raw_token):
-        bg = BackgroundTasks()
-        await UserService.request_password_change(session, user, "TestPassword123!", "NewPass123!", bg)
+        with patch("tasks.email.send_email_task.delay"):
+            await UserService.request_password_change(session, user, "TestPassword123!", "NewPass123!")
     return raw_token
 
 

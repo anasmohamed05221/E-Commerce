@@ -1,16 +1,15 @@
-from fastapi import BackgroundTasks
+from unittest.mock import patch
 from utils.hashing import verify_password
 from services.users import UserService
 
 
 async def _setup_pending_change(session, user) -> str:
     """Put user into pending password change state and return the RAW token."""
-    from unittest.mock import patch
     import secrets as _secrets
     raw_token = _secrets.token_urlsafe(32)
     with patch("services.users.secrets.token_urlsafe", return_value=raw_token):
-        bg = BackgroundTasks()
-        await UserService.request_password_change(session, user, "TestPassword123!", "NewPass123!", bg)
+        with patch("tasks.email.send_email_task.delay"):
+            await UserService.request_password_change(session, user, "TestPassword123!", "NewPass123!")
     return raw_token
 
 
@@ -21,17 +20,18 @@ async def test_change_password_success(client, verified_user, session):
         "username": verified_user.email,
         "password": "TestPassword123!"
     })
-    
+
     access_token = response.json()["access_token"]
-    
+
     # Request password change
-    response = await client.put("/users/me/password", 
-        headers={"Authorization": f"Bearer {access_token}"},
-        json={
-            "current_password": "TestPassword123!",
-            "new_password": "NewSecurePass456!"
-        }
-    )
+    with patch("tasks.email.send_email_task.delay"):
+        response = await client.put("/users/me/password",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={
+                "current_password": "TestPassword123!",
+                "new_password": "NewSecurePass456!"
+            }
+        )
     
     assert response.status_code == 200
     assert "confirmation email" in response.json()["message"].lower() or "check your email" in response.json()["message"].lower()
@@ -144,7 +144,8 @@ async def test_deny_password_change_success(client, verified_user, session):
     """Valid token in request body cancels the pending password change."""
     token = await _setup_pending_change(session, verified_user)
 
-    response = await client.post("/users/deny-password-change", json={"token": token})
+    with patch("tasks.email.send_email_task.delay"):
+        response = await client.post("/users/deny-password-change", json={"token": token})
 
     assert response.status_code == 200
     assert "cancelled" in response.json()["message"].lower()

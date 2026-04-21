@@ -107,6 +107,7 @@ flowchart TD
     end
 
     Client --> MW
+    MW --> Redis
     MW --> Router --> Schema --> Service --> Model --> PG
     Service --> Redis
     Redis -->|broker| Worker
@@ -116,7 +117,7 @@ Hard rules enforced throughout:
 - **Routers** never touch the database directly
 - **Services** own all business logic and authorization checks, ownership is verified here, not in the router
 - **Schemas** validate all input at the boundary: password strength, phone normalization (E.164 via libphonenumber), email format
-- **Redis** is accessed only from services, never from routers
+- **Redis** is accessed from middleware (rate limiting) and services (caching), never from routers directly
 
 ---
 

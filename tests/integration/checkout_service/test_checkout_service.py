@@ -129,6 +129,7 @@ def _mock_stripe_session(session_id="cs_test_123", url="https://checkout.stripe.
     mock_session = MagicMock()
     mock_session.id = session_id
     mock_session.url = url
+    mock_session.status = "open"
     return mock_session
 
 

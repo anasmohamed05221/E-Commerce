@@ -7,7 +7,7 @@ class Category(Base, CreatedAtMixin):
     __tablename__ = "categories"
 
     #pk
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
 
     #relationships
     products = relationship("Product", back_populates="category")

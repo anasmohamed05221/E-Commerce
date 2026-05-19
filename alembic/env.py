@@ -33,6 +33,7 @@ import models.order_items
 import models.inventory_changes
 import models.refresh_tokens
 import models.addresses
+import models.processed_webhook_events
 
 
 target_metadata = Base.metadata

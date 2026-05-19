@@ -11,7 +11,7 @@ class Product(Base, CreatedAtMixin, UpdatedAtMixin):
     )
 
     #pk
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
 
     #fk
     category_id = Column(Integer, ForeignKey("categories.id"), index=True, nullable=False)

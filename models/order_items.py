@@ -6,7 +6,7 @@ class OrderItem(Base):
     __tablename__ = "order_items"
 
     #pk
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
 
     #fk
     order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)

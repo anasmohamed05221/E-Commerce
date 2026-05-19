@@ -8,7 +8,7 @@ class InventoryChange(Base, CreatedAtMixin):
     __tablename__ = "inventory_changes"
 
     #pk
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     
     #fk
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)

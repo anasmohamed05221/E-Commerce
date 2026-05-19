@@ -7,7 +7,7 @@ class User(Base):
     __tablename__ = "users"
 
     #pk 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
 
     #relationships
     orders = relationship("Order", back_populates="user")

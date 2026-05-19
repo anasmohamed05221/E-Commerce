@@ -7,7 +7,7 @@ class Address(Base, CreatedAtMixin):
     __tablename__="addresses"
 
     #pk
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
 
     #fk
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)

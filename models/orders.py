@@ -8,7 +8,7 @@ class Order(Base, CreatedAtMixin, UpdatedAtMixin):
     __tablename__ = "orders"
 
     #pk
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
 
     #fk
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)

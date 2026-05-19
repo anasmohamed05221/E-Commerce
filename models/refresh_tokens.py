@@ -13,7 +13,7 @@ class RefreshToken(Base, CreatedAtMixin):
     __tablename__ = "refresh_tokens"
 
     #pk
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
 
     #fk
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)

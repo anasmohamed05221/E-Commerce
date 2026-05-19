@@ -24,3 +24,4 @@ class Order(Base, CreatedAtMixin, UpdatedAtMixin):
     payment_method = Column(Enum(PaymentMethod, values_callable=lambda obj: [e.value for e in obj], name="payment_method"), nullable=False)
     payment_status = Column(Enum(PaymentStatus, values_callable=lambda obj: [e.value for e in obj], name="payment_status"), default=PaymentStatus.UNPAID , nullable=False)
     stripe_checkout_session_id = Column(String, nullable=True)
+    stripe_payment_intent_id = Column(String, nullable=True)

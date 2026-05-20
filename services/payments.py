@@ -13,6 +13,7 @@ from tasks.emails import send_email_task
 from utils.email_templates import order_confirmation_email
 import stripe
 from utils.logger import get_logger
+from typing import Optional
 
 logger = get_logger(__name__)
 
@@ -48,7 +49,7 @@ class WebhookService:
                                 detail="Webhook event commit failed")
 
     @staticmethod
-    async def _handle_checkout_completed(db: AsyncSession, session: stripe.checkout.Session, event_id: str):
+    async def _handle_checkout_completed(db: AsyncSession, session: stripe.checkout.Session, event_id: Optional[str] = None):
         order = await db.scalar(
             select(Order)
             .where(Order.stripe_checkout_session_id == session.id)
@@ -73,8 +74,9 @@ class WebhookService:
                 stripe.Refund.create(payment_intent=session.payment_intent)
                 order.payment_status = PaymentStatus.REFUNDED
                 order.status = OrderStatus.CANCELLED
-                new_event = ProcessedWebhookEvent(event_id=event_id)
-                db.add(new_event)
+                if event_id is not None:
+                    new_event = ProcessedWebhookEvent(event_id=event_id)
+                    db.add(new_event)
                 
                 return
             
@@ -101,9 +103,9 @@ class WebhookService:
             "Order Confirmation",
             order_confirmation_email(order.id, str(order.total_amount), items)
         )
-
-        new_event = ProcessedWebhookEvent(event_id=event_id)
-        db.add(new_event)
+        if event_id is not None:
+            new_event = ProcessedWebhookEvent(event_id=event_id)
+            db.add(new_event)
 
     @staticmethod
     async def _handle_payment_failed(db: AsyncSession, event: stripe.Event):

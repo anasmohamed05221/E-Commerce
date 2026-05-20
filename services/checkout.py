@@ -158,8 +158,13 @@ class CheckoutService:
                 )
             )
             if existing_order:
-                session = stripe.checkout.Session.retrieve(existing_order.stripe_checkout_session_id)
-                if session.status == "open":
+                try:
+                    session = stripe.checkout.Session.retrieve(existing_order.stripe_checkout_session_id)
+                except stripe.StripeError as e:
+                    logger.warning("Failed to retrieve existing Stripe session during reuse check", extra={"order_id": existing_order.id, "error": str(e)})
+                    session = None
+
+                if session and session.status == "open":
                     existing_order.checkout_url = session.url
                     return existing_order
 

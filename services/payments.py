@@ -6,8 +6,11 @@ from models.processed_webhook_events import ProcessedWebhookEvent
 from models.orders import Order
 from models.order_items import OrderItem
 from models.inventory_changes import InventoryChange
+from models.users import User
 from models.enums import PaymentStatus, OrderStatus, InventoryChangeReason
 from services.cart import CartService
+from tasks.emails import send_email_task
+from utils.email_templates import order_confirmation_email
 import stripe
 from utils.logger import get_logger
 
@@ -85,7 +88,20 @@ class WebhookService:
         order.payment_status = PaymentStatus.PAID
         order.status = OrderStatus.CONFIRMED
         logger.info("Order confirmed after payment", extra={"order_id": order.id})
-        Enqueue send_order_confirmation_task postponed until i create the task, and method at email service
+
+        items = [
+            {"name": item.product.name, "quantity": item.quantity, "subtotal": str(item.subtotal)}
+            for item in order_items
+        ]
+
+        user = await db.scalar(select(User).where(User.id == order.user_id))
+        
+        send_email_task.delay(
+            user.email,
+            "Order Confirmation",
+            order_confirmation_email(order.id, str(order.total_amount), items)
+        )
+
         new_event = ProcessedWebhookEvent(event_id=event_id)
         db.add(new_event)
 

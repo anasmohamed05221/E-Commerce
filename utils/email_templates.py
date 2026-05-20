@@ -1,33 +1,27 @@
-"""
-Email templates for transactional emails.
-
-Brand theme: deep navy (#1a1a2e) header, electric blue (#4361ee) primary CTA.
-Action buttons: green (#22c55e) for confirm, red (#ef4444) for destructive/deny.
-"""
-
 _BASE_STYLES = """
-  body { margin:0; padding:0; background-color:#f4f6f8; font-family:Arial,sans-serif; }
+  body { margin:0; padding:0; background-color:#fafafa; font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif; }
 """
 
 
-def _wrap(content: str, header_color: str = "#1a1a2e") -> str:
-    """Wrap email content in the shared card layout."""
+def _wrap(content: str, header_color: str = "#0a0a0a") -> str:
     return f"""
     <html>
-    <head><style>{_BASE_STYLES}</style></head>
-    <body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,sans-serif;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f6f8;padding:40px 0;">
+    <head>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+      <style>{_BASE_STYLES}</style>
+    </head>
+    <body style="margin:0;padding:0;background-color:#fafafa;font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#fafafa;padding:48px 0;">
         <tr>
           <td align="center">
-            <table width="540" cellpadding="0" cellspacing="0"
-                   style="background-color:#ffffff;border-radius:10px;overflow:hidden;
-                          box-shadow:0 4px 16px rgba(0,0,0,0.10);">
+            <table width="560" cellpadding="0" cellspacing="0"
+                   style="background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #d4d4d8;">
 
               <!-- Header -->
               <tr>
                 <td style="background-color:{header_color};padding:32px 40px;text-align:center;">
-                  <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:1px;">
-                    E-Commerce App
+                  <h1 style="margin:0;color:#ffffff;font-size:18px;font-weight:700;letter-spacing:4px;text-transform:uppercase;">
+                    ARC
                   </h1>
                 </td>
               </tr>
@@ -41,8 +35,8 @@ def _wrap(content: str, header_color: str = "#1a1a2e") -> str:
 
               <!-- Footer -->
               <tr>
-                <td style="background-color:#f9fafb;padding:18px 40px;border-top:1px solid #e5e7eb;text-align:center;">
-                  <p style="margin:0;color:#9ca3af;font-size:12px;">
+                <td style="background-color:#fafafa;padding:20px 40px;border-top:1px solid #d4d4d8;text-align:center;">
+                  <p style="margin:0;color:#71717a;font-size:12px;">
                     This is an automated message &mdash; please do not reply.
                   </p>
                 </td>
@@ -57,14 +51,14 @@ def _wrap(content: str, header_color: str = "#1a1a2e") -> str:
     """
 
 
-def _button(label: str, url: str, color: str) -> str:
+def _button(label: str, url: str, color: str = "#0a0a0a") -> str:
     return f"""
     <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
       <tr>
-        <td style="border-radius:6px;background-color:{color};">
+        <td style="border-radius:999px;background-color:{color};">
           <a href="{url}"
-             style="display:inline-block;padding:13px 32px;color:#ffffff;text-decoration:none;
-                    font-size:14px;font-weight:700;border-radius:6px;">
+             style="display:inline-block;padding:14px 36px;color:#ffffff;text-decoration:none;
+                    font-size:14px;font-weight:600;border-radius:999px;letter-spacing:0.3px;">
             {label}
           </a>
         </td>
@@ -73,11 +67,11 @@ def _button(label: str, url: str, color: str) -> str:
     """
 
 
-def _warning_box(text: str, border_color: str = "#f59e0b", bg_color: str = "#fff8e1", text_color: str = "#92600a") -> str:
+def _info_box(text: str, border_color: str = "#d4d4d8", bg_color: str = "#fafafa", text_color: str = "#3f3f46") -> str:
     return f"""
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td style="background-color:{bg_color};border-left:4px solid {border_color};
+        <td style="background-color:{bg_color};border-left:3px solid {border_color};
                    border-radius:4px;padding:14px 16px;">
           <p style="margin:0;color:{text_color};font-size:13px;line-height:1.6;">{text}</p>
         </td>
@@ -88,25 +82,25 @@ def _warning_box(text: str, border_color: str = "#f59e0b", bg_color: str = "#fff
 
 def verification_email(code: str) -> str:
     content = f"""
-      <h2 style="margin:0 0 10px;color:#1a1a2e;font-size:20px;">Verify Your Email</h2>
-      <p style="margin:0 0 28px;color:#4b5563;font-size:15px;line-height:1.6;">
-        Welcome! Use the code below to verify your email address.
-        It expires in <strong>10 minutes</strong>.
+      <h2 style="margin:0 0 8px;color:#0a0a0a;font-size:22px;font-weight:700;">Verify your email</h2>
+      <p style="margin:0 0 32px;color:#71717a;font-size:15px;line-height:1.6;">
+        Welcome to ARC. Use the code below to verify your email address.
+        It expires in <strong style="color:#0a0a0a;">10 minutes</strong>.
       </p>
 
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
         <tr>
           <td align="center"
-              style="background-color:#f0f4ff;border:2px dashed #4361ee;
-                     border-radius:8px;padding:28px;">
-            <span style="font-size:40px;font-weight:700;letter-spacing:12px;color:#1a1a2e;">
+              style="background-color:#f4f4f5;border:1px solid #d4d4d8;
+                     border-radius:12px;padding:32px;">
+            <span style="font-size:40px;font-weight:700;letter-spacing:14px;color:#0a0a0a;">
               {code}
             </span>
           </td>
         </tr>
       </table>
 
-      <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
+      <p style="margin:0;color:#71717a;font-size:13px;line-height:1.6;">
         If you didn't create an account, you can safely ignore this email.
       </p>
     """
@@ -115,21 +109,21 @@ def verification_email(code: str) -> str:
 
 def password_reset_email(reset_url: str) -> str:
     content = f"""
-      <h2 style="margin:0 0 10px;color:#1a1a2e;font-size:20px;">Reset Your Password</h2>
-      <p style="margin:0 0 28px;color:#4b5563;font-size:15px;line-height:1.6;">
+      <h2 style="margin:0 0 8px;color:#0a0a0a;font-size:22px;font-weight:700;">Reset your password</h2>
+      <p style="margin:0 0 32px;color:#71717a;font-size:15px;line-height:1.6;">
         We received a request to reset your password.
-        Click the button below &mdash; this link expires in <strong>15 minutes</strong>.
+        This link expires in <strong style="color:#0a0a0a;">15 minutes</strong>.
       </p>
 
-      <div style="text-align:center;margin-bottom:28px;">
-        {_button("Reset Password", reset_url, "#4361ee")}
+      <div style="text-align:center;margin-bottom:32px;">
+        {_button("Reset Password", reset_url)}
       </div>
 
-      {_warning_box("<strong>Didn't request this?</strong> Ignore this email &mdash; your password will remain unchanged.")}
+      {_info_box("<strong>Didn't request this?</strong> Ignore this email &mdash; your password will remain unchanged.")}
 
-      <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;line-height:1.6;">
+      <p style="margin:20px 0 0;color:#71717a;font-size:12px;line-height:1.6;">
         Or copy this link into your browser:<br>
-        <span style="color:#4361ee;">{reset_url}</span>
+        <span style="color:#3f3f46;">{reset_url}</span>
       </p>
     """
     return _wrap(content)
@@ -137,38 +131,34 @@ def password_reset_email(reset_url: str) -> str:
 
 def password_change_request_email(confirm_url: str, deny_url: str) -> str:
     content = f"""
-      <h2 style="margin:0 0 10px;color:#1a1a2e;font-size:20px;">Password Change Request</h2>
-      <p style="margin:0 0 28px;color:#4b5563;font-size:15px;line-height:1.6;">
+      <h2 style="margin:0 0 8px;color:#0a0a0a;font-size:22px;font-weight:700;">Password change request</h2>
+      <p style="margin:0 0 32px;color:#71717a;font-size:15px;line-height:1.6;">
         A password change was requested for your account. Was this you?
       </p>
 
       <!-- Confirm -->
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:14px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
         <tr>
-          <td style="background-color:#f0fdf4;border-radius:8px;padding:20px;text-align:center;">
-            <p style="margin:0 0 14px;color:#1a1a2e;font-size:14px;font-weight:700;">
-              Yes, this was me
-            </p>
-            {_button("Confirm Password Change", confirm_url, "#22c55e")}
+          <td style="background-color:#f4f4f5;border-radius:12px;padding:20px;text-align:center;">
+            <p style="margin:0 0 16px;color:#0a0a0a;font-size:14px;font-weight:600;">Yes, this was me</p>
+            {_button("Confirm Password Change", confirm_url, "#0a0a0a")}
           </td>
         </tr>
       </table>
 
       <!-- Deny -->
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
         <tr>
-          <td style="background-color:#fff5f5;border-radius:8px;padding:20px;text-align:center;">
-            <p style="margin:0 0 14px;color:#1a1a2e;font-size:14px;font-weight:700;">
-              No, this was NOT me
-            </p>
+          <td style="background-color:#f4f4f5;border-radius:12px;padding:20px;text-align:center;">
+            <p style="margin:0 0 16px;color:#0a0a0a;font-size:14px;font-weight:600;">No, this was not me</p>
             {_button("Deny &amp; Logout All Sessions", deny_url, "#ef4444")}
           </td>
         </tr>
       </table>
 
-      <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.8;">
+      <p style="margin:0;color:#71717a;font-size:12px;line-height:1.8;">
         This link expires in 15 minutes.<br>
-        Confirm: <span style="color:#22c55e;">{confirm_url}</span><br>
+        Confirm: <span style="color:#3f3f46;">{confirm_url}</span><br>
         Deny: <span style="color:#ef4444;">{deny_url}</span>
       </p>
     """
@@ -177,22 +167,67 @@ def password_change_request_email(confirm_url: str, deny_url: str) -> str:
 
 def password_change_denied_email() -> str:
     content = """
-      <h2 style="margin:0 0 10px;color:#1a1a2e;font-size:20px;">Password Change Denied</h2>
-      <p style="margin:0 0 24px;color:#4b5563;font-size:15px;line-height:1.6;">
+      <h2 style="margin:0 0 8px;color:#0a0a0a;font-size:22px;font-weight:700;">Password change denied</h2>
+      <p style="margin:0 0 24px;color:#71717a;font-size:15px;line-height:1.6;">
         A password change request for your account was denied and all active sessions
         have been logged out.
       </p>
+    """
+    return _wrap(content, header_color="#ef4444")
 
-      <table width="100%" cellpadding="0" cellspacing="0">
+
+def order_confirmation_email(order_id: int, total_amount: str, items: list[dict]) -> str:
+    rows = "".join([
+        f"""
         <tr>
-          <td style="background-color:#fff5f5;border-left:4px solid #ef4444;
-                     border-radius:4px;padding:14px 16px;">
-            <p style="margin:0;color:#b91c1c;font-size:13px;line-height:1.6;">
-              <strong>If you did not initiate this request</strong>, your account may be at risk.
-              Please log in and update your password immediately.
-            </p>
+          <td style="padding:12px 0;border-bottom:1px solid #f4f4f5;color:#0a0a0a;font-size:14px;">
+            {item['name']}
+          </td>
+          <td style="padding:12px 0;border-bottom:1px solid #f4f4f5;color:#71717a;font-size:14px;text-align:center;">
+            x{item['quantity']}
+          </td>
+          <td style="padding:12px 0;border-bottom:1px solid #f4f4f5;color:#0a0a0a;font-size:14px;text-align:right;font-weight:600;">
+            EGP {item['subtotal']}
+          </td>
+        </tr>
+        """
+        for item in items
+    ])
+
+    content = f"""
+      <h2 style="margin:0 0 8px;color:#0a0a0a;font-size:22px;font-weight:700;">Order confirmed</h2>
+      <p style="margin:0 0 32px;color:#71717a;font-size:15px;line-height:1.6;">
+        Thank you for your order. We're getting it ready.
+      </p>
+
+      <!-- Order ID -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+        <tr>
+          <td style="background-color:#f4f4f5;border-radius:12px;padding:16px 20px;">
+            <p style="margin:0;color:#71717a;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Order ID</p>
+            <p style="margin:4px 0 0;color:#0a0a0a;font-size:16px;font-weight:700;">#{order_id}</p>
           </td>
         </tr>
       </table>
+
+      <!-- Items table -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+        <tr>
+          <th style="text-align:left;color:#71717a;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;padding-bottom:12px;border-bottom:1px solid #d4d4d8;">Item</th>
+          <th style="text-align:center;color:#71717a;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;padding-bottom:12px;border-bottom:1px solid #d4d4d8;">Qty</th>
+          <th style="text-align:right;color:#71717a;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;padding-bottom:12px;border-bottom:1px solid #d4d4d8;">Price</th>
+        </tr>
+        {rows}
+      </table>
+
+      <!-- Total -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
+        <tr>
+          <td style="color:#0a0a0a;font-size:15px;font-weight:700;">Total</td>
+          <td style="text-align:right;color:#0a0a0a;font-size:18px;font-weight:700;">EGP {total_amount}</td>
+        </tr>
+      </table>
+
+      {_info_box("Your order is being prepared. You'll receive a shipping update soon.", border_color="#34d399", bg_color="#f0fdf4", text_color="#3f3f46")}
     """
-    return _wrap(content, header_color="#b91c1c")
+    return _wrap(content)

@@ -8,9 +8,12 @@ from models.cart_items import CartItem
 from models.products import Product
 from models.addresses import Address
 from services.cart import CartService
+from models.users import User
 from models.inventory_changes import InventoryChange
 from models.enums import InventoryChangeReason, PaymentMethod, OrderStatus, PaymentStatus
+from tasks.emails import send_email_task
 from utils.logger import get_logger
+from utils.email_templates import order_confirmation_email
 import stripe
 from core.config import settings
 
@@ -192,6 +195,20 @@ class CheckoutService:
             await db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
                                 detail="Checkout commit failed")
+        
+        items = [
+            {"name": item.product.name, "quantity": item.quantity, "subtotal": str(item.subtotal)}
+            for item in order_items
+        ]
+        
+        user = await db.scalar(select(User).where(User.id == user_id))
+
+        send_email_task.delay(
+            user.email,
+            "Order Confirmation",
+            order_confirmation_email(order.id, str(order.total_amount), items)
+        )
+        
         order_eagered = await db.scalar(select(Order).options(joinedload(Order.items).joinedload(OrderItem.product)).where(Order.id==order.id))
         return order_eagered
 

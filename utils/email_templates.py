@@ -21,7 +21,7 @@ def _wrap(content: str, header_color: str = "#0a0a0a") -> str:
               <tr>
                 <td style="background-color:{header_color};padding:32px 40px;text-align:center;">
                   <h1 style="margin:0;color:#ffffff;font-size:18px;font-weight:700;letter-spacing:4px;text-transform:uppercase;">
-                    ARC
+                    Venix
                   </h1>
                 </td>
               </tr>
@@ -84,7 +84,7 @@ def verification_email(code: str) -> str:
     content = f"""
       <h2 style="margin:0 0 8px;color:#0a0a0a;font-size:22px;font-weight:700;">Verify your email</h2>
       <p style="margin:0 0 32px;color:#71717a;font-size:15px;line-height:1.6;">
-        Welcome to ARC. Use the code below to verify your email address.
+        Welcome to Venix. Use the code below to verify your email address.
         It expires in <strong style="color:#0a0a0a;">10 minutes</strong>.
       </p>
 

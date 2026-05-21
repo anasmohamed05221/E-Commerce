@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo.png" alt="Venix" width="800">
+<img src="assets/logo-light.png" alt="Venix" width="800">
 
 **A plug-and-play e-commerce backend engine. Async-first, concurrency-safe, and engineered for the hard problems**
 

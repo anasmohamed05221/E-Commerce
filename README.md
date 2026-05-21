@@ -10,6 +10,7 @@
 [![Redis](https://img.shields.io/badge/Redis-DC382D?logo=redis&logoColor=white)](https://redis.io)
 [![Celery](https://img.shields.io/badge/Celery-5.5-37814A?logo=celery&logoColor=white)](https://docs.celeryq.dev)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?logo=sqlalchemy&logoColor=white)](https://sqlalchemy.org)
+[![Stripe](https://img.shields.io/badge/Stripe-008CDD?logo=stripe&logoColor=white)](https://stripe.com)
 [![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](https://docker.com)
 [![CI](https://github.com/anasmohamed05221/E-Commerce/actions/workflows/ci.yml/badge.svg)](https://github.com/anasmohamed05221/E-Commerce/actions)
 
@@ -49,7 +50,8 @@ Built as a deliberate learning exercise to practice backend engineering the way 
 - View individual product details
 - Manage cart: add, update quantity, remove items, or clear all
 - Manage multiple delivery addresses with a default flag
-- Place orders with COD payment and a selected address
+- Place orders with COD or Stripe Checkout, selecting a delivery address at checkout
+- Stripe Checkout Session with reuse-if-valid: an open existing session is returned instead of creating a duplicate
 - View paginated order history and individual order details
 - Cancel eligible orders (PENDING status only)
 
@@ -80,6 +82,7 @@ Built as a deliberate learning exercise to practice backend engineering the way 
 | 🖥️ **Structured logging with request tracing** | Every request logged as JSON with a unique request ID, status code, duration, and client IP. Stdout-only in production (12-Factor App). |
 | 📋 **Inventory fully audited** | Every stock change logged in `inventory_changes` with a typed reason (`SALE`, `CANCELLATION`, `RESTOCK`, `ADJUSTMENT`, `RETURN`). Stock is never mutated silently. |
 | 📬 **Async task queue** | Celery + Redis implements producer/broker/consumer separation. Slow jobs run off the request path with at-least-once delivery and JSON serialization. |
+| 💳 **Stripe Checkout with reliability guarantees** | Signature-verified webhook handler with a `ProcessedWebhookEvent` dedup table (idempotency). A Celery Beat reconciliation job recovers lost webhooks by polling Stripe directly. If stock runs out between checkout and payment confirmation, a refund is triggered automatically and the order is cancelled (auto-refund saga). |
 
 ---
 
@@ -88,6 +91,7 @@ Built as a deliberate learning exercise to practice backend engineering the way 
 ```mermaid
 flowchart TD
     Client([Client])
+    Stripe([Stripe])
 
     subgraph Render App Container
         MW[Middleware\nlogging · rate limiting · CORS · request ID]
@@ -96,6 +100,7 @@ flowchart TD
         Service[Service\nbusiness logic · auth · DB transactions]
         Model[Model\nasync SQLAlchemy 2.0 + asyncpg]
         Worker[Celery Worker]
+        Beat[Celery Beat\nreconciliation scheduler]
     end
 
     subgraph Render Managed
@@ -110,7 +115,11 @@ flowchart TD
     MW --> Redis
     MW --> Router --> Schema --> Service --> Model --> PG
     Service --> Redis
+    Service <-->|create session · refund| Stripe
+    Stripe -->|webhook events| Router
     Redis -->|broker| Worker
+    Beat -->|enqueue sweep task| Redis
+    Worker <-->|reconcile orders| Stripe
 ```
 
 Hard rules enforced throughout:
@@ -190,7 +199,15 @@ erDiagram
         int user_id FK
         int address_id FK
         string status "FSM: PENDING → CONFIRMED → SHIPPED → COMPLETED"
+        string payment_method "COD · STRIPE"
+        string payment_status "UNPAID · PAID · FAILED · REFUNDED · EXPIRED"
+        string stripe_checkout_session_id
+        string stripe_payment_intent_id
         decimal total_amount
+    }
+
+    processed_webhook_events {
+        string event_id PK "Stripe event ID, dedup key"
     }
 
     order_items {
@@ -220,13 +237,13 @@ erDiagram
     orders ||--o{ order_items : "contains"
 ```
 
-**9 tables · 22 Alembic migrations**
+**10 tables · 25 Alembic migrations**
 
 ---
 
 ## Test Suite
 
-**413 tests**: unit, integration, API, and middleware layers, running against a real PostgreSQL database for Dev/Prod parity.
+**430+ tests**: unit, integration, API, and middleware layers, running against a real PostgreSQL database for Dev/Prod parity.
 
 ```
 tests/
@@ -234,8 +251,10 @@ tests/
 ├── integration/    → every service method tested directly against the DB
 │                     auth · users · tokens · products · categories · cart
 │                     checkout · orders · addresses · admin services
+│                     webhook handler · reconciliation · payment events
 ├── api/            → full HTTP layer: status codes, response schemas,
 │                     auth enforcement, RBAC, ownership, edge cases
+│                     Stripe checkout session creation and reuse logic
 └── middleware/     → rate limiting, request ID propagation
 ```
 
@@ -254,9 +273,9 @@ The setup is engineered, not just functional:
 
 ## API Reference
 
-**45 endpoints across 11 domains.** Full contracts documented in [`docs/API_Contracts/`](docs/API_Contracts/) as Markdown files, one file per domain, covering request/response schemas, status codes, auth requirements, and edge cases.
+**46 endpoints across 12 domains.** Full contracts documented in [`docs/API_Contracts/`](docs/API_Contracts/) as Markdown files, one file per domain, covering request/response schemas, status codes, auth requirements, and edge cases.
 
-Domains: `auth` · `users` · `addresses` · `products` · `categories` · `cart` · `orders` · `admin/products` · `admin/categories` · `admin/orders` · `admin/users`
+Domains: `auth` · `users` · `addresses` · `products` · `categories` · `cart` · `orders` · `webhooks` · `admin/products` · `admin/categories` · `admin/orders` · `admin/users`
 
 ---
 
@@ -267,7 +286,8 @@ Domains: `auth` · `users` · `addresses` · `products` · `categories` · `cart
 | Framework | FastAPI + Uvicorn |
 | Database | PostgreSQL + async SQLAlchemy 2.0 (asyncpg) + Alembic |
 | Cache & Broker | Upstash Redis (async, cache-aside pattern, write-through invalidation; also Celery broker + result backend) |
-| Task Queue | Celery 5.5 + Upstash Redis (broker + result backend), JSON serializer, at-least-once delivery |
+| Task Queue | Celery 5.5 + Upstash Redis (broker + result backend), JSON serializer, at-least-once delivery; Celery Beat for scheduled reconciliation |
+| Payments | Stripe Checkout Sessions (test mode), signature-verified webhooks, Stripe Refund API |
 | Auth | python-jose (JWT) + passlib (bcrypt) + SHA-256 token hashing |
 | Validation | Pydantic v2 + email-validator + phonenumbers (E.164) |
 | Rate Limiting | SlowAPI is Redis-backed, multi-worker safe |
@@ -357,7 +377,7 @@ python -m scripts.seed_admin
 - [x] Alembic env.py, all test fixtures and conftest converted to async equivalents
 
 **Planned**
-- Stripe payments + webhooks, Celery task queue, order confirmation emails, coupons
+- Coupons and promo codes, Smart Cart Insight Engine
 - OAuth login, reviews and ratings, wishlist, shipment tracking, in-app notifications
 - Typesense product search with filters and typo tolerance
 - AWS deployment (EC2 + RDS + Upstash Redis) as a cloud learning exercise
@@ -367,10 +387,13 @@ python -m scripts.seed_admin
 <summary>Full roadmap breakdown</summary>
 
 **Epic 2: Payments & Background Jobs**
-- [ ] Stripe integration (checkout session + webhooks)
 - [x] Celery + Upstash Redis task queue infrastructure (worker co-located in Render container)
 - [x] Move emails to Celery (verification, password reset, password change)
-- [ ] Order confirmation email on payment
+- [x] Stripe Checkout Session (test mode, idempotency key, reuse-if-valid)
+- [x] Stripe webhook handler (signature-verified, idempotent via ProcessedWebhookEvent dedup table)
+- [x] Order confirmation email on payment (triggered from webhook handler via Celery)
+- [x] Auto-refund saga (stock exhausted at payment confirmation time triggers Stripe refund + order cancellation)
+- [x] Reconciliation Celery Beat job (polls Stripe for lost webhooks, sweeps stale UNPAID orders)
 - [ ] Coupons and promo codes (fixed + percentage discounts, expiry, min order value)
 - [ ] Coupon management (admin: create, disable, list)
 - [ ] Smart Cart Insight Engine: rule-based backend service that analyzes the cart in real time and returns max 3 prioritized insights (free shipping nudge, bundle suggestion, cheaper alternative, coupon hint) alongside the cart response. All four rules are backed by real data via a `product_relationships` table (`BUNDLE` / `ALTERNATIVE`). Capstone story for Epic 2.

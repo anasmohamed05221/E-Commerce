@@ -2,7 +2,7 @@
 
 <img src="assets/logo-light.png" alt="Venix" width="800">
 
-**A plug-and-play e-commerce backend engine. Async-first, concurrency-safe, and engineered for the hard problems**
+**A headless, multi-tenant e-commerce backend platform. Any store signs up and gets a complete, fully isolated backend: auth, catalog, cart, orders, payments, and more. Bring your own frontend.**
 
 [![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.121-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -30,7 +30,9 @@
 
 ---
 
-Built as a deliberate learning exercise to practice backend engineering the way it works in real teams, not to follow a tutorial. The system was shaped iteratively as complexity grew, converging into a clean, layered architecture that keeps it maintainable, flexible, and scalable. It deals with real challenges such as race conditions, atomic transactions, token security, cache invalidation, and production deployment.
+Venix is a headless, multi-tenant e-commerce backend platform. Any store signs up, gets fully isolated data, and immediately has a complete backend: auth, catalog, cart, orders, payments, and admin. Tenants connect via API key and bring their own frontend. Venix handles none of the frontend concerns.
+
+The current deployed system is the single-tenant MVP. Multi-tenancy is the active next milestone, in development on a feature branch. The core engine is production-grade: async-first throughout, concurrency-safe checkout, atomic transactions, Stripe integration with reliability guarantees, and a test suite engineered for speed.
 
 ---
 
@@ -359,7 +361,24 @@ python -m scripts.seed_admin
 
 ## Roadmap
 
-**Epic 1: MVP** ✅ shipped · ✅ deployed
+**Foundation: Multi-Tenancy** 🔄 in development (`feat/multi-tenancy` branch)
+
+The core architectural shift. Every story in this foundation must complete before any new feature epics land on main.
+
+- [ ] Tenant registration and API key issuance (`tenants` table, `POST /tenants/register`, plaintext key shown once)
+- [ ] Tenant resolver middleware (`X-Tenant-API-Key` header, injected into every request)
+- [ ] Dynamic connection routing: shared Venix DB by default, or tenant-provided external `DATABASE_URL` (bridge model)
+- [ ] Schema migration: `tenant_id` added to all 10 domain tables via Alembic
+- [ ] Query scoping: every service method filters by `tenant_id`, no exceptions
+- [ ] Redis namespacing: cache and rate limiting keys prefixed by `tenant_id`
+- [ ] Stripe per-tenant: each tenant supplies their own Stripe keys, stored encrypted
+- [ ] Tenant-scoped admin: admin users can only manage their own tenant's data
+- [ ] Cross-tenant isolation tests: prove tenant A cannot read, write, or affect tenant B under any condition
+
+---
+
+**Epic 0: Single-Tenant MVP** ✅ shipped and deployed
+
 - [x] Full auth pipeline with token rotation and two-step password change
 - [x] Product catalog with category filtering, price filters, and Redis caching
 - [x] Paginated responses on all list endpoints
@@ -367,55 +386,45 @@ python -m scripts.seed_admin
 - [x] Address management with ownership enforcement
 - [x] Admin: product CRUD, order status FSM, user management
 - [x] RBAC, rate limiting, structured logging, health checks
-- [x] 413 tests · GitHub Actions CI
+- [x] 413 tests, GitHub Actions CI
 - [x] Dockerized: Dockerfile, docker-compose, entrypoint.sh
 - [x] Deployed to Render (web + managed PostgreSQL + Celery worker co-located) + Upstash Redis, HTTPS, auto-deploy from main
-
-**Async SQLAlchemy Migration** ✅ shipped
-- [x] Full data access layer migrated to async SQLAlchemy 2.0 (`create_async_engine`, `AsyncSession`, `select()` API)
-- [x] All service methods async, all routes back to `async def`, explicit `selectinload`/`joinedload`
-- [x] Alembic env.py, all test fixtures and conftest converted to async equivalents
-
-**Planned**
-- Coupons and promo codes, Smart Cart Insight Engine
-- OAuth login, reviews and ratings, wishlist, shipment tracking, in-app notifications
-- Typesense product search with filters and typo tolerance
-- AWS deployment (EC2 + RDS + Upstash Redis) as a cloud learning exercise
-- Monitoring, admin dashboard, reports
+- [x] Full async data layer: async SQLAlchemy 2.0, asyncpg, async Redis, all service methods async
 
 <details>
 <summary>Full roadmap breakdown</summary>
 
-**Epic 2: Payments & Background Jobs**
-- [x] Celery + Upstash Redis task queue infrastructure (worker co-located in Render container)
-- [x] Move emails to Celery (verification, password reset, password change)
+**Epic 2: Payments and Async** (partially complete, remaining work runs under multi-tenant model)
+- [x] Celery + Upstash Redis task queue infrastructure
+- [x] Emails moved to Celery (verification, password reset, password change)
 - [x] Stripe Checkout Session (test mode, idempotency key, reuse-if-valid)
 - [x] Stripe webhook handler (signature-verified, idempotent via ProcessedWebhookEvent dedup table)
-- [x] Order confirmation email on payment (triggered from webhook handler via Celery)
-- [x] Auto-refund saga (stock exhausted at payment confirmation time triggers Stripe refund + order cancellation)
+- [x] Order confirmation email on payment via Celery
+- [x] Auto-refund saga (stock exhausted at payment confirmation triggers Stripe refund + cancellation)
 - [x] Reconciliation Celery Beat job (polls Stripe for lost webhooks, sweeps stale UNPAID orders)
-- [ ] Coupons and promo codes (fixed + percentage discounts, expiry, min order value)
-- [ ] Coupon management (admin: create, disable, list)
-- [ ] Smart Cart Insight Engine: rule-based backend service that analyzes the cart in real time and returns max 3 prioritized insights (free shipping nudge, bundle suggestion, cheaper alternative, coupon hint) alongside the cart response. All four rules are backed by real data via a `product_relationships` table (`BUNDLE` / `ALTERNATIVE`). Capstone story for Epic 2.
+- [ ] Coupons and promo codes (fixed + percentage, expiry, min order value, per-user limits)
+- [ ] Coupon management (admin: create, disable, list with usage stats)
+- [ ] Smart Cart Insight Engine: real-time cart analysis returning up to 3 prioritized insights (free shipping nudge, bundle suggestion, cheaper alternative, coupon hint), backed by a `product_relationships` table
 
-**Epic 3: Engagement & Fulfillment**
-- [ ] OAuth login (Google / Apple / Facebook)
-- [ ] Shipment & delivery simulation with order tracking
+**Epic 3: Engagement and Fulfillment** (all features per-tenant)
+- [ ] OAuth login (Google / Apple / Facebook), per-tenant OAuth credentials
+- [ ] Shipment and delivery simulation with order tracking
 - [ ] Wishlist (add / remove / move to cart)
-- [ ] Reviews and ratings (purchased-only constraint, auto-updated product avg)
+- [ ] Reviews and ratings (purchased-only, auto-updated product avg)
 - [ ] Review moderation (admin: approve, hide, delete)
 - [ ] In-app notifications (order status changes)
 
-**Epic 4: Search**
+**Epic 4: Search** (per-tenant index namespace)
 - [ ] Typesense product search with filters, typo tolerance, and ranking
 
-**Epic 5: DevOps & Platform Improvements**
-- [ ] AWS deployment (EC2 + RDS + Upstash Redis). Real cloud skills, 12-month free tier
+**Epic 5: DevOps and Platform Improvements**
+- [ ] AWS deployment (EC2 + RDS + Upstash Redis)
 - [ ] Monitoring and observability (log aggregation, error tracking)
-- [ ] Admin dashboard: revenue, orders, top products, new users (charts)
+- [ ] Tenant usage metrics (request counts, active users, storage)
+- [ ] Admin dashboard: revenue, orders, top products, new users (per tenant)
 - [ ] Reports: sales by period, revenue by category, return rates
 - [ ] Hierarchical categories
-- [ ] SEO slugs for product/category pages
+- [ ] SEO slugs for product and category pages
 - [ ] CSRF protection
 
 </details>
@@ -426,6 +435,6 @@ python -m scripts.seed_admin
 
 **Built by [Anas Mohamed](https://github.com/anasmohamed05221)**
 
-*Learning backend engineering by building, not by watching.*
+*Backend engineering. No shortcuts.*
 
 </div>

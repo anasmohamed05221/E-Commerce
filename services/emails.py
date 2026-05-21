@@ -38,8 +38,7 @@ class EmailService:
 
         # Send email via SMTP
 
-        with smtplib.SMTP(settings.MAIL_SERVER, settings.MAIL_PORT) as server:
-            server.starttls()  # Upgrade to secure connection
+        with smtplib.SMTP_SSL(settings.MAIL_SERVER, settings.MAIL_PORT) as server:
             server.login(settings.MAIL_USERNAME, settings.MAIL_PASSWORD)
             server.sendmail(settings.MAIL_FROM, to_email, message.as_string())
 

@@ -59,9 +59,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="E-Commerce API",
-    description="Backend API for e-commerce platform",
+    title="Venix",
+    description="Production-ready, e-commerce backend engine.",
     version="1.0.0",
+    contact={
+        "name": "Anas Mohamed",
+        "url": "https://github.com/anasmohamed05221",
+    },
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan

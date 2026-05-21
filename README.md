@@ -1,8 +1,8 @@
 <div align="center">
 
-# E-Commerce Backend
+# Venix
 
-**Production-grade e-commerce backend API built with real-world engineering practices, designed under real constraints and trade-offs.**
+**A plug-and-play e-commerce backend engine. Async-first, concurrency-safe, and engineered for the hard problems**
 
 [![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.121-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)

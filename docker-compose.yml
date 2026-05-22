@@ -35,11 +35,8 @@ services:
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 15
       REFRESH_TOKEN_EXPIRE_DAYS: 7
-      MAIL_USERNAME: ""
-      MAIL_PASSWORD: ""
+      RESEND_API_KEY: ""
       MAIL_FROM: ""
-      MAIL_SERVER: ""
-      MAIL_PORT: 587
       LOG_LEVEL: INFO
       BASE_URL: http://localhost:8000
       CORS_ORIGINS: '["http://localhost:3000"]'
@@ -50,7 +47,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-        
+
   worker:
     build: .
     command: celery -A core.celery_app worker --loglevel=info --concurrency=2
@@ -62,11 +59,8 @@ services:
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 15
       REFRESH_TOKEN_EXPIRE_DAYS: 7
-      MAIL_USERNAME: ""
-      MAIL_PASSWORD: ""
+      RESEND_API_KEY: ""
       MAIL_FROM: ""
-      MAIL_SERVER: ""
-      MAIL_PORT: 587
       LOG_LEVEL: INFO
       BASE_URL: http://localhost:8000
       CORS_ORIGINS: '["http://localhost:3000"]'
@@ -89,11 +83,8 @@ services:
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 15
       REFRESH_TOKEN_EXPIRE_DAYS: 7
-      MAIL_USERNAME: ""
-      MAIL_PASSWORD: ""
+      RESEND_API_KEY: ""
       MAIL_FROM: ""
-      MAIL_SERVER: ""
-      MAIL_PORT: 587
       LOG_LEVEL: INFO
       BASE_URL: http://localhost:8000
       CORS_ORIGINS: '["http://localhost:3000"]'
@@ -104,6 +95,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-        
+
 volumes:
   postgres_data:

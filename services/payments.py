@@ -1,14 +1,12 @@
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload
 from models.processed_webhook_events import ProcessedWebhookEvent
 from models.orders import Order
-from models.order_items import OrderItem
-from models.inventory_changes import InventoryChange
 from models.users import User
-from models.enums import PaymentStatus, OrderStatus, InventoryChangeReason
+from models.enums import PaymentStatus, OrderStatus
 from services.cart import CartService
+from services.checkout import CheckoutService
 from tasks.emails import send_email_task
 from utils.email_templates import order_confirmation_email
 import stripe
@@ -20,6 +18,7 @@ logger = get_logger(__name__)
 class WebhookService:
     @staticmethod
     async def handle_webhook_event(db: AsyncSession, event: stripe.Event):
+        """Route a Stripe webhook event to the appropriate handler."""
         processed_event = await db.scalar(
             select(ProcessedWebhookEvent)
             .where(ProcessedWebhookEvent.event_id == event.id)
@@ -28,9 +27,9 @@ class WebhookService:
         if processed_event:
             logger.info("Skipping already processed webhook event", extra={"event_id": event.id})
             return
-        
+
         session = event["data"]["object"]
-        
+
         if event["type"] == "checkout.session.completed":
             await WebhookService._handle_checkout_completed(db, session, event.id)
         elif event["type"] == "payment_intent.payment_failed":
@@ -45,11 +44,12 @@ class WebhookService:
         except Exception:
             logger.error("Webhook event commit failed", extra={"event_id": event.id})
             await db.rollback()
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                                 detail="Webhook event commit failed")
 
     @staticmethod
     async def _handle_checkout_completed(db: AsyncSession, session: stripe.checkout.Session, event_id: Optional[str] = None):
+        """Confirm a paid Stripe order: create order items, decrement stock, clear cart, send confirmation email."""
         order = await db.scalar(
             select(Order)
             .where(Order.stripe_checkout_session_id == session.id)
@@ -57,18 +57,13 @@ class WebhookService:
         )
         if not order:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
-        
+
         if order.payment_status == PaymentStatus.PAID:
             return
-        
-        result = await db.execute(
-            select(OrderItem)
-            .options(joinedload(OrderItem.product))
-            .where(OrderItem.order_id == order.id)
-        )
-        order_items = result.scalars().all()
 
-        for item in order_items:
+        cart_items = await CartService.get_cart(db, order.user_id)
+
+        for item in cart_items:
             product = item.product
             if item.quantity > product.stock:
                 logger.warning("Stock insufficient at payment confirmation, triggering auto-refund saga", extra={"order_id": order.id, "product_id": product.id})
@@ -78,14 +73,13 @@ class WebhookService:
                 if event_id is not None:
                     new_event = ProcessedWebhookEvent(event_id=event_id)
                     db.add(new_event)
-                
                 return
-            
-        for item in order_items:
-            product = item.product
-            product.stock -= item.quantity
-            inv_change = InventoryChange(product_id=product.id, change_amount=-item.quantity, reason=InventoryChangeReason.SALE)
-            db.add(inv_change)
+
+        order_items, inventory_changes = await CheckoutService._process_cart_items(db, order.user_id, cart_items, order)
+
+        for order_item, inventory_change in zip(order_items, inventory_changes):
+            db.add(order_item)
+            db.add(inventory_change)
 
         await CartService.clear_cart(db, order.user_id)
         order.payment_status = PaymentStatus.PAID
@@ -98,7 +92,7 @@ class WebhookService:
         ]
 
         user = await db.scalar(select(User).where(User.id == order.user_id))
-        
+
         send_email_task.delay(
             user.email,
             "Order Confirmation",
@@ -110,6 +104,7 @@ class WebhookService:
 
     @staticmethod
     async def _handle_payment_failed(db: AsyncSession, event: stripe.Event):
+        """Mark an order as payment failed."""
         payment_intent_id = event["data"]["object"]["id"]
         order = await db.scalar(
             select(Order)
@@ -117,7 +112,7 @@ class WebhookService:
         )
         if not order:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
-        
+
         order.payment_status = PaymentStatus.FAILED
 
         new_event = ProcessedWebhookEvent(event_id=event.id)
@@ -125,6 +120,7 @@ class WebhookService:
 
     @staticmethod
     async def _handle_charge_refunded(db: AsyncSession, event: stripe.Event):
+        """Mark an order as refunded."""
         payment_intent_id = event["data"]["object"]["payment_intent"]
         order = await db.scalar(
             select(Order)
@@ -132,9 +128,8 @@ class WebhookService:
         )
         if not order:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
-        
+
         order.payment_status = PaymentStatus.REFUNDED
 
         new_event = ProcessedWebhookEvent(event_id=event.id)
         db.add(new_event)
-

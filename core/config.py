@@ -14,9 +14,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_DAYS: int
     MAIL_FROM: str
-    GMAIL_CLIENT_ID: str = ""
-    GMAIL_CLIENT_SECRET: str = ""
-    GMAIL_REFRESH_TOKEN: str = ""
+    RESEND_API_KEY: str = ""
     LOG_LEVEL: str = "INFO"
     LOG_DIR: str = "logs"
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]

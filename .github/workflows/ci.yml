@@ -58,11 +58,7 @@ jobs:
         ALGORITHM: HS256
         ACCESS_TOKEN_EXPIRE_MINUTES: 15
         REFRESH_TOKEN_EXPIRE_DAYS: 7
-        MAIL_USERNAME: test@example.com
-        MAIL_PASSWORD: test-password
         MAIL_FROM: noreply@example.com
-        MAIL_PORT: 587
-        MAIL_SERVER: smtp.example.com
         LOG_LEVEL: INFO
         LOG_DIR: logs
         REDIS_URL: redis://localhost:6379/0

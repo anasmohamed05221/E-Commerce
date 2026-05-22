@@ -293,7 +293,7 @@ Domains: `auth` · `users` · `addresses` · `products` · `categories` · `cart
 | Auth | python-jose (JWT) + passlib (bcrypt) + SHA-256 token hashing |
 | Validation | Pydantic v2 + email-validator + phonenumbers (E.164) |
 | Rate Limiting | SlowAPI is Redis-backed, multi-worker safe |
-| Email | SMTP via Celery task (3-retry, 60s countdown) |
+| Email | Gmail API via Celery task (3-retry, 60s countdown) |
 | Logging | Structured JSON · rotating file handlers · request ID tracing |
 | Containerization | Docker · docker-compose (local multi-service parity) |
 | Testing | pytest + pytest-asyncio + httpx + pytest-xdist |

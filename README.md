@@ -22,9 +22,9 @@
 
 | | |
 |---|---|
-| **API** | https://ecommerce-api-25zx.onrender.com |
-| **Docs (Swagger UI)** | https://ecommerce-api-25zx.onrender.com/docs |
-| **Health** | https://ecommerce-api-25zx.onrender.com/health |
+| **API** | https://venix.website |
+| **Docs (Swagger UI)** | https://venix.website/docs |
+| **Health** | https://venix.website/health |
 
 > Free tier instances spin down after inactivity, first request may take ~50 seconds to wake up.
 

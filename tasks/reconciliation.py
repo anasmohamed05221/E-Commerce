@@ -4,7 +4,7 @@ from celery import shared_task
 from models.orders import Order
 from models.enums import PaymentMethod, PaymentStatus, OrderStatus
 from services.payments import WebhookService
-from core.database import async_sessionmaker
+from core.database import SessionLocal
 from datetime import datetime, timedelta, timezone
 import stripe
 from utils.logger import get_logger
@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 @shared_task(ignore_result=True)
 def sweep_stale_stripe_orders():
     async def _run():
-        async with async_sessionmaker() as db:
+        async with SessionLocal() as db:
             orders = (await db.scalars(
                 select(Order)
                 .where(
@@ -48,6 +48,6 @@ def sweep_stale_stripe_orders():
                     except Exception:
                         logger.error("Reconciliation commit failed for expired order", extra={"order_id": order.id})
                         await db.rollback()
-            
+
 
     asyncio.run(_run())

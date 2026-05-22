@@ -40,7 +40,7 @@ def _run_reconciliation(session, mock_stripe_session):
 
     asyncio.run() cannot be called from a running event loop (pytest-asyncio).
     Strategy: patch asyncio.run to capture the coroutine, then await it
-    inside the patch context so async_sessionmaker and stripe are still mocked.
+    inside the patch context so SessionLocal and stripe are still mocked.
     Returns the captured coroutine (already awaited by the caller).
     """
     captured = {}
@@ -75,7 +75,7 @@ async def test_reconciliation_confirms_completed_session(session, stale_stripe_o
         yield session
 
     with patch("tasks.reconciliation.asyncio.run", side_effect=mock_asyncio_run), \
-         patch("tasks.reconciliation.async_sessionmaker", return_value=_test_session_ctx()), \
+         patch("tasks.reconciliation.SessionLocal", return_value=_test_session_ctx()), \
          patch("tasks.reconciliation.stripe.checkout.Session.retrieve", return_value=mock_stripe_session):
         sweep_stale_stripe_orders()
         assert "coro" in captured
@@ -103,7 +103,7 @@ async def test_reconciliation_expires_stale_order(session, stale_stripe_order):
         yield session
 
     with patch("tasks.reconciliation.asyncio.run", side_effect=mock_asyncio_run), \
-         patch("tasks.reconciliation.async_sessionmaker", return_value=_test_session_ctx()), \
+         patch("tasks.reconciliation.SessionLocal", return_value=_test_session_ctx()), \
          patch("tasks.reconciliation.stripe.checkout.Session.retrieve", return_value=mock_stripe_session):
         sweep_stale_stripe_orders()
         assert "coro" in captured
@@ -131,7 +131,7 @@ async def test_reconciliation_skips_open_session(session, stale_stripe_order):
         yield session
 
     with patch("tasks.reconciliation.asyncio.run", side_effect=mock_asyncio_run), \
-         patch("tasks.reconciliation.async_sessionmaker", return_value=_test_session_ctx()), \
+         patch("tasks.reconciliation.SessionLocal", return_value=_test_session_ctx()), \
          patch("tasks.reconciliation.stripe.checkout.Session.retrieve", return_value=mock_stripe_session):
         sweep_stale_stripe_orders()
         assert "coro" in captured

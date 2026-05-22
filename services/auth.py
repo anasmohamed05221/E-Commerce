@@ -31,7 +31,7 @@ class AuthService:
         4. Send verification email
         5. Return success message
         """
-        existing_user = await db.scalar(select(User).where(User.email == request.email))
+        existing_user = await db.scalar(select(User).where(User.email == request.email.lower().strip()))
         if existing_user:
             logger.warning(
                 "Registration attempt with existing email",
@@ -73,7 +73,7 @@ class AuthService:
     @staticmethod
     async def authenticate_user(email: str, password: str, db: AsyncSession):
         """Authenticate a user by email and password."""
-        user = await db.scalar(select(User).where(User.email == email))
+        user = await db.scalar(select(User).where(User.email == email.lower().strip()))
 
         if not user:
             logger.warning(
@@ -117,7 +117,7 @@ class AuthService:
     @staticmethod
     async def verify_user(body: VerifyEmailRequest, db: AsyncSession):
         """Verify a user's email with the provided verification code."""
-        user = await db.scalar(select(User).where(User.email == body.email))
+        user = await db.scalar(select(User).where(User.email == body.email.lower().strip()))
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found")
@@ -162,7 +162,7 @@ class AuthService:
 
         Silent no-op for unknown emails — prevents user enumeration.
         """
-        model = await db.scalar(select(User).where(User.email == email))
+        model = await db.scalar(select(User).where(User.email == email.lower().strip()))
 
         if not model:
             logger.info("Password reset requested for non-existent email", extra={"email": email})
@@ -194,7 +194,7 @@ class AuthService:
         Silent no-op if the email is unknown or already verified — prevents user enumeration.
         Invalidates any previous code by overwriting it.
         """
-        user = await db.scalar(select(User).where(User.email == email))
+        user = await db.scalar(select(User).where(User.email == email.lower().strip()))
 
         if not user or user.is_verified:
             logger.info("Resend verification skipped", extra={"email": email})

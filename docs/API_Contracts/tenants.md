@@ -1,0 +1,57 @@
+# Tenants API Contract
+
+This document defines the API contract for tenant registration and management endpoints.
+
+---
+
+# 1. Register Tenant
+
+## Request
+
+**POST** `/tenants/register`
+
+Rate limit: 3/minute
+
+Request body:
+
+{
+  "name": "Acme Store",
+  "slug": "acme-store",
+  "plan": "free"
+}
+
+## Validation Rules
+
+- `name`: required, max 100 characters.
+- `slug`: required, 3–50 characters, must match `^[a-z0-9][a-z0-9-]{2,49}$` — lowercase letters, digits, hyphens only, no leading hyphen.
+- `plan`: optional, default `"free"`. Valid values: `"free"` | `"pro"` | `"enterprise"`.
+
+---
+
+## Response (201 Created)
+
+{
+  "id": "<uuid7>",
+  "name": "Acme Store",
+  "slug": "acme-store",
+  "plan": "free",
+  "api_key": "vnx_xKp...47chars",
+  "warning": "Save this API key now. It will not be shown again and cannot be recovered."
+}
+
+---
+
+## Notes
+
+- The `api_key` is shown **exactly once** in this response. It is never stored in plaintext — only a SHA256 hash is persisted. If lost, use the key rotation endpoint (future story) to issue a new one.
+- The `api_key` is always prefixed with `vnx_` for identification and secret-scanning compatibility.
+- The `id` is a UUID7 — time-ordered, safe against business leakage, and compatible with distributed systems.
+- The `slug` is immutable after registration and will appear in per-tenant webhook URLs.
+
+---
+
+## Errors
+
+- `409 Conflict` — slug is already taken by another tenant.
+- `422 Unprocessable Entity` — slug fails regex, name exceeds 100 characters, or invalid plan value.
+- `429 Too Many Requests` — rate limit exceeded.

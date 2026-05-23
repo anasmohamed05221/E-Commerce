@@ -7,5 +7,11 @@ from models.cart_items import CartItem
 from models.inventory_changes import InventoryChange
 from models.refresh_tokens import RefreshToken
 from models.addresses import Address
+from models.processed_webhook_events import ProcessedWebhookEvent
+from models.tenants import Tenant
 
-__all__ = ["User", "Order", "OrderItem", "Product", "Category", "CartItem", "InventoryChange", "RefreshToken", "Address"]
+__all__ = [
+    "User", "Order", "OrderItem", "Product", "Category", 
+    "CartItem", "InventoryChange", "RefreshToken", "Address",
+    "ProcessedWebhookEvent", "Tenant"
+]

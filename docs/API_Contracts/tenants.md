@@ -35,15 +35,14 @@ Request body:
   "name": "Acme Store",
   "slug": "acme-store",
   "plan": "free",
-  "api_key": "vnx_xKp...47chars",
-  "warning": "Save this API key now. It will not be shown again and cannot be recovered."
+  "api_key": "vnx_xKp...47chars"
 }
 
 ---
 
 ## Notes
 
-- The `api_key` is shown **exactly once** in this response. It is never stored in plaintext — only a SHA256 hash is persisted. If lost, use the key rotation endpoint (future story) to issue a new one.
+- The `api_key` is shown **exactly once** in this response. It is never stored in plaintext — only a SHA256 hash is persisted. If lost, use the key rotation endpoint (Story 2.5) to issue a new one. The client is responsible for displaying an appropriate warning to the user.
 - The `api_key` is always prefixed with `vnx_` for identification and secret-scanning compatibility.
 - The `id` is a UUID7 — time-ordered, safe against business leakage, and compatible with distributed systems.
 - The `slug` is immutable after registration and will appear in per-tenant webhook URLs.

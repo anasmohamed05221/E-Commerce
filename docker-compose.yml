@@ -29,7 +29,8 @@ services:
       - "8000:8000"
     environment:
       ENV: development
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ecommerce
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/ecommerce
+      SSL_REQUIRED: "false"
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: localsecretkey
       ALGORITHM: HS256
@@ -53,7 +54,8 @@ services:
     command: celery -A core.celery_app worker --loglevel=info --concurrency=2
     environment:
       ENV: development
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ecommerce
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/ecommerce
+      SSL_REQUIRED: "false"
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: localsecretkey
       ALGORITHM: HS256
@@ -77,7 +79,8 @@ services:
     command: celery -A core.celery_app beat --loglevel=info --schedule /tmp/celerybeat-schedule
     environment:
       ENV: development
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ecommerce
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/ecommerce
+      SSL_REQUIRED: "false"
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: localsecretkey
       ALGORITHM: HS256

@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str = ""
     FRONTEND_SUCCESS_URL: str = "http://localhost:3000/checkout/success"
     FRONTEND_CANCEL_URL: str = "http://localhost:3000/checkout/cancel"
+    SSL_REQUIRED: bool = True
 
 
 settings = Settings()

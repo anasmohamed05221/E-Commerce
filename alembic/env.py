@@ -9,7 +9,20 @@ from alembic import context
 # access to the values within the .ini file in use.
 config = context.config
 from core.config import settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://"))
+
+def _make_sync_url(async_url: str) -> str:
+    """Convert asyncpg URL to psycopg2-compatible sync URL for Alembic."""
+    from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
+    url = async_url.replace("postgresql+asyncpg://", "postgresql://")
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query, keep_blank_values=True)
+    params.pop("ssl", None)
+    if settings.SSL_REQUIRED:
+        params["sslmode"] = ["require"]
+    new_query = urlencode({k: v[0] for k, v in params.items()})
+    return urlunparse(parsed._replace(query=new_query))
+
+config.set_main_option("sqlalchemy.url", _make_sync_url(settings.DATABASE_URL))
 
 
 # Interpret the config file for Python logging.

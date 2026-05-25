@@ -10,7 +10,7 @@ engine = create_async_engine(
     pool_size=5,
     max_overflow=10,
     pool_timeout=5,
-    connect_args={"ssl": "require"}
+    connect_args={"ssl": "require"} if settings.SSL_REQUIRED else {}
 )
 
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)

@@ -1,6 +1,7 @@
 from core.database import Base
 from sqlalchemy.orm import relationship
 from sqlalchemy import (Column, Integer, ForeignKey ,Numeric, Enum, String)
+from sqlalchemy.dialects.postgresql import UUID
 from .mixins import CreatedAtMixin, UpdatedAtMixin
 from .enums import OrderStatus, PaymentMethod, PaymentStatus
 
@@ -11,10 +12,12 @@ class Order(Base, CreatedAtMixin, UpdatedAtMixin):
     id = Column(Integer, primary_key=True)
 
     #fk
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     address_id = Column(Integer, ForeignKey("addresses.id", ondelete="RESTRICT"), nullable=False, index=True)
 
     #relationships
+    tenant = relationship("Tenant", back_populates="orders")
     user = relationship("User", back_populates="orders")
     items = relationship("OrderItem", back_populates="order")
     address = relationship("Address", back_populates="orders")

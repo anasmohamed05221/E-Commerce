@@ -1,21 +1,30 @@
 from core.database import Base
-from sqlalchemy import (Column, Integer, String, Boolean, DateTime, Enum)
+from sqlalchemy import (Column, Integer, String, Boolean, DateTime, Enum, ForeignKey, Index, text)
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from .enums import UserRole
 
 class User(Base):
     __tablename__ = "users"
 
+    __table_args__ = (
+        Index("uq_user_tenant_email", "tenant_id", text("lower(email)"), unique=True),
+    )
+
     #pk 
     id = Column(Integer, primary_key=True)
 
+    #fk
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+
     #relationships
+    tenant = relationship("Tenant", back_populates="users")
     orders = relationship("Order", back_populates="user")
     cart_items = relationship("CartItem", back_populates="user", passive_deletes=True)
     refresh_tokens = relationship("RefreshToken", back_populates="user")
     addresses = relationship("Address", back_populates="user", passive_deletes=True)
     
-    email = Column(String(255), unique=True, nullable=False)
+    email = Column(String(255), nullable=False)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     hashed_password = Column(String, nullable=False)

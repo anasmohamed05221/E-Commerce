@@ -1,6 +1,7 @@
 from core.database import Base
 from sqlalchemy import Column, String, Enum, Boolean
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from uuid6 import uuid7
 from .enums import PlanTier
 from .mixins import CreatedAtMixin
@@ -10,6 +11,15 @@ class Tenant(Base, CreatedAtMixin):
 
     #pk
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid7)
+
+    #relationships
+    users = relationship("User", back_populates="tenant")
+    products = relationship("Product", back_populates="tenant")
+    categories = relationship("Category", back_populates="tenant")
+    orders = relationship("Order", back_populates="tenant")
+    cart_items = relationship("CartItem", back_populates="tenant")
+    addresses = relationship("Address", back_populates="tenant")
+    processed_webhook_events = relationship("ProcessedWebhookEvent", back_populates="tenant")
 
     name = Column(String(100), nullable=False)
     owner_email = Column(String(255), nullable=False, index=True)

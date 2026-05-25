@@ -43,5 +43,5 @@ async def test_create_user_duplicate_email(session):
         with pytest.raises(HTTPException) as exc_info:
             await AuthService.create_user(user_data, session)
 
-    assert exc_info.value.status_code == 400
+    assert exc_info.value.status_code == 409
     assert "already registered" in exc_info.value.detail.lower()

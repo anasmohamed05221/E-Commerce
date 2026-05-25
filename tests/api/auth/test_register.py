@@ -42,7 +42,7 @@ async def test_register_duplicate(client, session):
         "phone_number": "+201111111111"
     })
 
-    assert response_2.status_code == 400
+    assert response_2.status_code == 409
     
     # Verify it's not duplicated in DB
     result = await session.execute(select(func.count()).select_from(User).where(User.email == "duplicateuser@example.com"))
@@ -67,7 +67,7 @@ async def test_register_email_case_insensitive(client, session):
         "phone_number": "+201111111111"
     })
     
-    assert response.status_code == 400  # Should be treated as duplicate
+    assert response.status_code == 409  # Should be treated as duplicate
 
 
 async def test_register_invalid_email(client, session):

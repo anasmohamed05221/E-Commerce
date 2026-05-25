@@ -44,3 +44,15 @@ async def test_create_product_minimal_fields(session, test_category):
 
     assert product.description is None
     assert product.image_url is None
+
+
+async def test_create_product_duplicate_name(session, product_factory, test_category):
+    """Raises 409 when a product with the same name already exists."""
+    await product_factory(name="Laptop")
+
+    body = ProductCreate(name="Laptop", price=500.00, stock=5, category_id=test_category.id)
+
+    with pytest.raises(HTTPException) as exc:
+        await ProductService.create_product(session, body)
+
+    assert exc.value.status_code == 409

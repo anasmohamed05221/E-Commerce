@@ -19,7 +19,7 @@ class User(Base):
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     hashed_password = Column(String, nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False) 
+    is_active = Column(Boolean, default=True, nullable=False)
     """is_active = False means:
     - User cannot authenticate
     - User is treated as deleted / deactivated
@@ -33,8 +33,8 @@ class User(Base):
     verification_code_expires_at = Column(DateTime(timezone=True), nullable=True)
     # Password change fields
     pending_password_hash = Column(String(255), nullable=True)
-    password_change_token = Column(String(255), nullable=True)
+    password_change_token = Column(String(255), nullable=True, unique=True)
     password_change_expires_at = Column(DateTime(timezone=True), nullable=True)
     # Password reset fields
-    password_reset_token = Column(String(255), nullable=True)
+    password_reset_token = Column(String(255), nullable=True, unique=True)
     password_reset_expires_at = Column(DateTime(timezone=True), nullable=True)

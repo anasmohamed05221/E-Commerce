@@ -8,6 +8,7 @@ class Product(Base, CreatedAtMixin, UpdatedAtMixin):
 
     __table_args__ = (
         CheckConstraint("stock >= 0", name="ck_product_stock_non_negative"),
+        CheckConstraint("rating >= 0 AND rating <= 5", name="ck_product_rating_from_0_to_5"),
     )
 
     #pk

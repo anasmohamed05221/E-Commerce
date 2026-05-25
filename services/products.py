@@ -47,6 +47,10 @@ class ProductService:
         category = await db.scalar(select(Category).where(Category.id==request.category_id))
         if category is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid category_id")
+
+        existing = await db.scalar(select(Product).where(Product.name == request.name))
+        if existing is not None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A product with this name already exists")
         
         product = Product(category_id=request.category_id, 
                         name=request.name, 
@@ -78,6 +82,9 @@ class ProductService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
 
         if request.name is not None:
+            existing = await db.scalar(select(Product).where(Product.name == request.name, Product.id != product_id))
+            if existing is not None:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A product with this name already exists")
             product.name = request.name
 
         if request.price is not None:

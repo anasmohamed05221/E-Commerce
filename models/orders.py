@@ -11,8 +11,8 @@ class Order(Base, CreatedAtMixin, UpdatedAtMixin):
     id = Column(Integer, primary_key=True)
 
     #fk
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    address_id = Column(Integer, ForeignKey("addresses.id", ondelete="RESTRICT"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    address_id = Column(Integer, ForeignKey("addresses.id", ondelete="RESTRICT"), nullable=False, index=True)
 
     #relationships
     user = relationship("User", back_populates="orders")
@@ -20,8 +20,8 @@ class Order(Base, CreatedAtMixin, UpdatedAtMixin):
     address = relationship("Address", back_populates="orders")
 
     total_amount = Column(Numeric(10, 2), nullable=False)
-    status = Column(Enum(OrderStatus, values_callable=lambda obj: [e.value for e in obj], name="order_status"), default=OrderStatus.PENDING, nullable=False)
+    status = Column(Enum(OrderStatus, values_callable=lambda obj: [e.value for e in obj], name="order_status"), default=OrderStatus.PENDING, nullable=False, index=True)
     payment_method = Column(Enum(PaymentMethod, values_callable=lambda obj: [e.value for e in obj], name="payment_method"), nullable=False)
-    payment_status = Column(Enum(PaymentStatus, values_callable=lambda obj: [e.value for e in obj], name="payment_status"), default=PaymentStatus.UNPAID , nullable=False)
-    stripe_checkout_session_id = Column(String, nullable=True)
-    stripe_payment_intent_id = Column(String, nullable=True)
+    payment_status = Column(Enum(PaymentStatus, values_callable=lambda obj: [e.value for e in obj], name="payment_status"), default=PaymentStatus.UNPAID , nullable=False, index=True)
+    stripe_checkout_session_id = Column(String, nullable=True, unique=True)
+    stripe_payment_intent_id = Column(String, nullable=True, unique=True)

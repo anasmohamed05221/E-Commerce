@@ -57,3 +57,26 @@ def test_update_product_empty_body():
     """Sending all-None body raises ValidationError."""
     with pytest.raises(ValidationError):
         ProductUpdate()
+
+
+async def test_update_product_duplicate_name(session, product_factory):
+    """Raises 409 when renaming a product to a name already taken by another product."""
+    await product_factory(name="Laptop")
+    product_b = await product_factory(name="Mouse")
+
+    body = ProductUpdate(name="Laptop")
+
+    with pytest.raises(HTTPException) as exc:
+        await ProductService.update_product(session, body, product_b.id)
+
+    assert exc.value.status_code == 409
+
+
+async def test_update_product_same_name_no_conflict(session, product_factory):
+    """Updating a product with its own existing name does not raise a conflict."""
+    product = await product_factory(name="Laptop")
+
+    body = ProductUpdate(name="Laptop")
+    updated = await ProductService.update_product(session, body, product.id)
+
+    assert updated.name == "Laptop"

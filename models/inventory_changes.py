@@ -11,7 +11,7 @@ class InventoryChange(Base, CreatedAtMixin):
     id = Column(Integer, primary_key=True)
     
     #fk
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
 
     #relationships
     product = relationship("Product", back_populates="inventory_changes")

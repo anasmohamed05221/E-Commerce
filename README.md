@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
 
 <img src="assets/logo-light.png" alt="Venix" width="800">
 
@@ -77,7 +77,7 @@ The current deployed system is the single-tenant MVP. Multi-tenancy is the activ
 | 🔒 **Race conditions prevented at the DB level** | Checkout uses `SELECT FOR UPDATE` to lock the product row before reading stock. Two concurrent checkouts for the last unit cannot both succeed. |
 | 🔄 **Token rotation with reuse detection** | On every refresh, the old token is revoked and a new pair issued. Presenting a revoked token is treated as a security event. |
 | 🔀 **Full async data layer** | Entire stack runs on one event loop: async routes, async SQLAlchemy 2.0 (asyncpg), async Redis. Migrated as a dedicated refactor story before adding Stripe and Celery. |
-| 🧪 **Test suite engineered for speed** | 413 tests in ~11s. Savepoint-based isolation, parallel execution via `pytest-xdist`, passwords pre-hashed once at module load. Was 194 tests in ~70s before optimization. |
+| 🧪 **Test suite engineered for speed** | 442 tests in ~11s. Savepoint-based isolation, parallel execution via `pytest-xdist`, passwords pre-hashed once at module load. Was 194 tests in ~70s before optimization. |
 | ⚙️ **Order status FSM** | `PENDING → CONFIRMED → SHIPPED → COMPLETED`. Skipping or reversing states raises a 409. Cancellation is a separate path with different rules per role. |
 | 💰 **Price snapshots at purchase time** | `order_items.price_at_time` captures the price at checkout. Changing a product price never affects existing orders. |
 | ⚡ **Redis for caching and rate limiting** | Cache-aside pattern with explicit invalidation on writes. Rate limiting counters shared across Gunicorn workers so limits cannot be bypassed. |
@@ -239,13 +239,13 @@ erDiagram
     orders ||--o{ order_items : "contains"
 ```
 
-**10 tables · 25 Alembic migrations**
+**11 tables · 28 Alembic migrations**
 
 ---
 
 ## Test Suite
 
-**430+ tests**: unit, integration, API, and middleware layers, running against a real PostgreSQL database for Dev/Prod parity.
+**442+ tests**: unit, integration, API, and middleware layers, running against a real PostgreSQL database for Dev/Prod parity.
 
 ```
 tests/
@@ -269,15 +269,15 @@ The setup is engineered, not just functional:
 - **No bcrypt in fixtures** : passwords pre-hashed once at module load. JWT tokens generated directly without HTTP round-trips. Bcrypt cost is not paid on every test.
 - **Worker-scoped emails** : fixture emails include the xdist worker ID, preventing unique-constraint collisions under parallel execution.
 
-> Before optimization: 194 tests in ~70s, After: 413 tests in ~11s
+> Before optimization: 194 tests in ~70s, After: 442 tests in ~11s
 
 ---
 
 ## API Reference
 
-**46 endpoints across 12 domains.** Full contracts documented in [`docs/API_Contracts/`](docs/API_Contracts/) as Markdown files, one file per domain, covering request/response schemas, status codes, auth requirements, and edge cases.
+**47 endpoints across 13 domains.** Full contracts documented in [`docs/API_Contracts/`](docs/API_Contracts/) as Markdown files, one file per domain, covering request/response schemas, status codes, auth requirements, and edge cases.
 
-Domains: `auth` · `users` · `addresses` · `products` · `categories` · `cart` · `orders` · `webhooks` · `admin/products` · `admin/categories` · `admin/orders` · `admin/users`
+Domains: `auth` · `tenants` · `users` · `addresses` · `products` · `categories` · `cart` · `orders` · `webhooks` · `admin/products` · `admin/categories` · `admin/orders` · `admin/users`
 
 ---
 
@@ -293,7 +293,7 @@ Domains: `auth` · `users` · `addresses` · `products` · `categories` · `cart
 | Auth | python-jose (JWT) + passlib (bcrypt) + SHA-256 token hashing |
 | Validation | Pydantic v2 + email-validator + phonenumbers (E.164) |
 | Rate Limiting | SlowAPI is Redis-backed, multi-worker safe |
-| Email | Gmail API via Celery task (3-retry, 60s countdown) |
+| Email | Resend API via Celery task (3-retry, 60s countdown), verified sender domain venix.website |
 | Logging | Structured JSON · rotating file handlers · request ID tracing |
 | Containerization | Docker · docker-compose (local multi-service parity) |
 | Testing | pytest + pytest-asyncio + httpx + pytest-xdist |
@@ -365,7 +365,7 @@ python -m scripts.seed_admin
 
 The core architectural shift. Every story in this foundation must complete before any new feature epics land on main.
 
-- [ ] Tenant registration and API key issuance (`tenants` table, `POST /tenants/register`, plaintext key shown once)
+- [x] Tenant registration and API key issuance (`tenants` table, `POST /tenants/register`, plaintext key shown once)
 - [ ] Tenant resolver middleware (`X-Tenant-API-Key` header, injected into every request)
 - [ ] Dynamic connection routing: shared Venix DB by default, or tenant-provided external `DATABASE_URL` (bridge model)
 - [ ] Schema migration: `tenant_id` added to all 10 domain tables via Alembic
@@ -438,3 +438,4 @@ The core architectural shift. Every story in this foundation must complete befor
 *Backend engineering. No shortcuts.*
 
 </div>
+

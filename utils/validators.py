@@ -2,12 +2,15 @@ import re
 import phonenumbers
 def validate_password(value):
         """
-        Password must be at least 8 characters and contain:
+        Password must be at least 8 characters, not more than 72 bytes (bcrypt limit), and contain:
         - At least one letter
         - At least one digit
         """
         if len(value) < 8:
             raise ValueError('Password must be at least 8 characters')
+        
+        if len(value.encode("utf-8")) > 72:
+             raise ValueError('Password size must be at most 72 bytes')
 
         if not re.search(r'[A-Za-z]', value):
             raise ValueError('Password must contain at least one letter')

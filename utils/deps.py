@@ -24,8 +24,11 @@ def get_current_active_tenant(request: Request) -> Tenant:
 tenant_dependency = Annotated[Tenant, Depends(get_current_active_tenant)]
 
 
-async def get_db():
+async def get_db(request: Request):
+    """Open a tenant-aware AsyncSession and store the resolved tenant_id in db.info."""
+    tenant = getattr(request.state, "tenant", None)
     db = SessionLocal()
+    db.info["tenant_id"] = tenant.id if tenant else None
     try:
         yield db
     finally:
@@ -35,6 +38,7 @@ db_dependency = Annotated[AsyncSession, Depends(get_db)]
 
 
 def get_current_user(token: Annotated[str, Depends(OAuth2PasswordBearer(tokenUrl="auth/token"))]):
+    """Decode and validate the JWT access token, returning the token payload."""
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         email: str = payload.get("sub")
@@ -62,6 +66,7 @@ user_dependency = Annotated[dict, Depends(get_current_user)]
 
 
 async def get_current_active_user(db: db_dependency, user: user_dependency):
+    """Fetch the active user from the database using the token payload."""
     current_user = await AuthService.get_active_user_by_id(db=db, user_id=user.get("user_id"))
 
     if current_user is None:
@@ -74,6 +79,7 @@ active_user_dependency = Annotated[User, Depends(get_current_active_user)]
 
 
 async def get_current_active_admin(db: db_dependency, current_user: active_user_dependency):
+    """Verify the current user has the ADMIN role, raising 403 otherwise."""
     if current_user.role != UserRole.ADMIN:
         logger.warning(
             "Non-admin access attempt on admin endpoint",
@@ -88,6 +94,7 @@ admin_dependency = Annotated[User, Depends(get_current_active_admin)]
 
 
 async def get_current_active_customer(db: db_dependency, current_user: active_user_dependency):
+    """Verify the current user has the CUSTOMER role, raising 403 otherwise."""
     if current_user.role != UserRole.CUSTOMER:
         logger.warning(
             "Non-customer access attempt on customer endpoint",

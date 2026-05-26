@@ -1,12 +1,14 @@
 import os
 os.environ["ENV"] = "testing"
 os.environ["CELERY_TASK_ALWAYS_EAGER"] = "True"
+import hashlib
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from utils.hashing import get_password_hash
 from services.token import TokenService
+from models.tenants import Tenant
 from models.users import User
 from models.categories import Category
 from models.products import Product
@@ -140,12 +142,31 @@ def mock_redis_for_tests():
     redis_client.redis = None
 
 
+# Tenant Fixture
+
+@pytest.fixture
+async def test_tenant(session, worker_id):
+    """Create a test tenant for all model fixtures."""
+    tenant = Tenant(
+        name="Test Store",
+        owner_email=f"tenant_owner_{worker_id}@test.com",
+        owner_password_hash=HASHED_TEST_PASSWORD,
+        slug=f"test-store-{worker_id}",
+        api_key_hash=hashlib.sha256(f"test-api-key-{worker_id}".encode()).hexdigest(),
+    )
+    session.add(tenant)
+    await session.commit()
+    await session.refresh(tenant)
+    return tenant
+
+
 # User Fixtures
 
 @pytest.fixture
-async def verified_user(session, worker_id):
+async def verified_user(session, worker_id, test_tenant):
     """Create a verified, active customer."""
     user = User(
+        tenant_id=test_tenant.id,
         email=f"testuser_{worker_id}@email.com",
         first_name="Test",
         last_name="User",
@@ -161,9 +182,10 @@ async def verified_user(session, worker_id):
 
 
 @pytest.fixture
-async def verified_admin(session, worker_id):
+async def verified_admin(session, worker_id, test_tenant):
     """Create a verified, active admin."""
     user = User(
+        tenant_id=test_tenant.id,
         email=f"testadmin_{worker_id}@email.com",
         first_name="Test",
         last_name="Admin",
@@ -185,6 +207,7 @@ async def verified_admin(session, worker_id):
 def user_token(verified_user) -> str:
     """JWT access token for verified_user (no HTTP roundtrip)."""
     return TokenService.create_access_token(
+        tenant_id=str(verified_user.tenant_id),
         email=verified_user.email,
         user_id=verified_user.id,
         role=verified_user.role
@@ -195,6 +218,7 @@ def user_token(verified_user) -> str:
 def admin_token(verified_admin) -> str:
     """JWT access token for verified_admin (no HTTP roundtrip)."""
     return TokenService.create_access_token(
+        tenant_id=str(verified_admin.tenant_id),
         email=verified_admin.email,
         user_id=verified_admin.id,
         role=verified_admin.role
@@ -204,9 +228,9 @@ def admin_token(verified_admin) -> str:
 # Data Fixtures
 
 @pytest.fixture
-async def test_category(session):
+async def test_category(session, test_tenant):
     """A reusable test category."""
-    category = Category(name="Electronics", description="Tech gear")
+    category = Category(tenant_id=test_tenant.id, name="Electronics", description="Tech gear")
     session.add(category)
     await session.commit()
     await session.refresh(category)
@@ -214,10 +238,10 @@ async def test_category(session):
 
 
 @pytest.fixture
-async def product_factory(session, test_category):
+async def product_factory(session, test_category, test_tenant):
     """Factory to create products. Usage: product = await product_factory(name=..., stock=...)"""
     async def _create(*, name="Laptop", price=1000.00, stock=10):
-        product = Product(name=name, price=price, stock=stock, category_id=test_category.id)
+        product = Product(tenant_id=test_tenant.id, name=name, price=price, stock=stock, category_id=test_category.id)
         session.add(product)
         await session.commit()
         await session.refresh(product)
@@ -226,19 +250,20 @@ async def product_factory(session, test_category):
 
 
 @pytest.fixture
-async def seed_products(session, test_category):
+async def seed_products(session, test_category, test_tenant):
     """Seed two products for listing/filter tests."""
-    p1 = Product(name="Laptop", price=1000.00, stock=5, category_id=test_category.id)
-    p2 = Product(name="Mouse", price=50.00, stock=20, category_id=test_category.id)
+    p1 = Product(tenant_id=test_tenant.id, name="Laptop", price=1000.00, stock=5, category_id=test_category.id)
+    p2 = Product(tenant_id=test_tenant.id, name="Mouse", price=50.00, stock=20, category_id=test_category.id)
     session.add_all([p1, p2])
     await session.commit()
     return [p1, p2]
 
 
 @pytest.fixture
-async def test_address(session, verified_user):
+async def test_address(session, verified_user, test_tenant):
     """Default address for verified_user."""
     address = Address(
+        tenant_id=test_tenant.id,
         user_id=verified_user.id,
         street="123 Test St",
         city="Cairo",

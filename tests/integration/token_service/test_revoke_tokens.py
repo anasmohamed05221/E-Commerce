@@ -9,7 +9,7 @@ import hashlib
 
 async def test_revoke_token(session, test_user):
     """Test revoking a single refresh token."""
-    tokens = await TokenService.create_tokens(test_user.email, test_user.id, test_user.role, session)
+    tokens = await TokenService.create_tokens(str(test_user.tenant_id), test_user.email, test_user.id, test_user.role, session)
 
     # Revoke
     await TokenService.revoke_token(tokens["refresh_token"], session)
@@ -27,8 +27,8 @@ async def test_revoke_token(session, test_user):
 async def test_revoke_all_tokens(session, test_user):
     """Test revoking all tokens for a user."""
     # Create multiple tokens
-    await TokenService.create_tokens(test_user.email, test_user.id, test_user.role, session)
-    await TokenService.create_tokens(test_user.email, test_user.id, test_user.role, session)
+    await TokenService.create_tokens(str(test_user.tenant_id), test_user.email, test_user.id, test_user.role, session)
+    await TokenService.create_tokens(str(test_user.tenant_id), test_user.email, test_user.id, test_user.role, session)
 
     # Revoke all
     await TokenService.revoke_all_user_tokens(test_user.id, session)

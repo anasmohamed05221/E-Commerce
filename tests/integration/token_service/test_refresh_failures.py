@@ -8,7 +8,7 @@ import hashlib
 
 async def test_revoked_token_fails_refresh(session, test_user):
     """Test that revoked tokens cannot be refreshed."""
-    tokens = await TokenService.create_tokens(test_user.email, test_user.id, test_user.role, session)
+    tokens = await TokenService.create_tokens(str(test_user.tenant_id), test_user.email, test_user.id, test_user.role, session)
 
     # Revoke
     await TokenService.revoke_token(tokens["refresh_token"], session)
@@ -24,11 +24,12 @@ async def test_expired_token_fails_refresh(session, test_user):
     """Test that expired tokens cannot be refreshed."""
     # Create token with 1-second expiry
     short_token, jti, expires_at = TokenService.create_refresh_token(
-        test_user.email, test_user.id, test_user.role
+        str(test_user.tenant_id), test_user.email, test_user.id, test_user.role
     )
     # Manually create DB entry with past expiry
     token_hash = hashlib.sha256(jti.encode()).hexdigest()
     db_token = RefreshToken(
+        tenant_id=test_user.tenant_id,
         user_id=test_user.id,
         token_hash=token_hash,
         expires_at=datetime.now(UTC) - timedelta(seconds=1)  # Already expired

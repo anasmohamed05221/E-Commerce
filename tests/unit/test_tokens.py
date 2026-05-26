@@ -5,11 +5,14 @@ from datetime import timedelta
 from time import sleep
 import pytest
 
+DUMMY_TENANT_ID = "00000000-0000-0000-0000-000000000001"
+
 def test_create_access_token():
-    test_token = TokenService.create_access_token(email="user@example.com", user_id=1, role="customer")
+    test_token = TokenService.create_access_token(tenant_id=DUMMY_TENANT_ID, email="user@example.com", user_id=1, role="customer")
     assert test_token
 
     payload = jwt.decode(test_token, key=settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    assert payload["tenant_id"] == DUMMY_TENANT_ID
     assert payload["sub"] == "user@example.com"
     assert payload["id"] == 1
     assert payload["role"].lower() == "customer"
@@ -18,10 +21,11 @@ def test_create_access_token():
 
 
 def test_create_refresh_token():
-    test_token = TokenService.create_refresh_token(email="user@example.com", user_id=1, role="customer")[0]
+    test_token = TokenService.create_refresh_token(tenant_id=DUMMY_TENANT_ID, email="user@example.com", user_id=1, role="customer")[0]
     assert test_token
 
     payload = jwt.decode(test_token, key=settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    assert payload["tenant_id"] == DUMMY_TENANT_ID
     assert payload["sub"] == "user@example.com"
     assert payload["id"] == 1
     assert payload["role"].lower() == "customer"
@@ -33,6 +37,7 @@ def test_create_refresh_token():
 
 def test_token_expiration():
     access_token = TokenService.create_access_token(
+        tenant_id=DUMMY_TENANT_ID,
         email="user@example.com",
         user_id=1,
         role="customer",

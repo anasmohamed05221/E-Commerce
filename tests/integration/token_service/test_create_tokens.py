@@ -9,7 +9,7 @@ import hashlib
 
 async def test_create_refresh_token(session, test_user):
     """Test that create_tokens stores refresh token in DB."""
-    tokens = await TokenService.create_tokens(test_user.email, test_user.id, test_user.role, session)
+    tokens = await TokenService.create_tokens(str(test_user.tenant_id), test_user.email, test_user.id, test_user.role, session)
 
     # Verify response structure
     assert "access_token" in tokens
@@ -39,7 +39,7 @@ async def test_create_refresh_token(session, test_user):
 async def test_refresh_token_rotation(session, test_user):
     """Test that refreshing revokes old token and creates new one."""
     # Create initial tokens
-    old_tokens = await TokenService.create_tokens(test_user.email, test_user.id, test_user.role, session)
+    old_tokens = await TokenService.create_tokens(str(test_user.tenant_id), test_user.email, test_user.id, test_user.role, session)
 
     # Refresh
     new_tokens = await TokenService.refresh_access_token(old_tokens["refresh_token"], session)

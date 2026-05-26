@@ -16,11 +16,12 @@ class TokenService:
     """
     
     @staticmethod
-    def create_access_token(email: str, user_id: int, role: str, expires_delta: timedelta = None):
+    def create_access_token(tenant_id: str, email: str, user_id: int, role: str, expires_delta: timedelta = None):
         """
         Creates a JWT access token.
         
         Args:
+            tenant_id: Users's tenant id
             email: User's email
             user_id: User's ID
             role: User's role
@@ -35,6 +36,7 @@ class TokenService:
         expire = datetime.now(timezone.utc) + expires_delta
         
         payload = {
+            "tenant_id": tenant_id,
             "sub": email,
             "id": user_id,
             "role": role,
@@ -45,11 +47,12 @@ class TokenService:
         return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     
     @staticmethod
-    def create_refresh_token(email: str, user_id: int, role: str):
+    def create_refresh_token(tenant_id: str, email: str, user_id: int, role: str):
         """
         Creates a JWT refresh token.
         
         Args:
+            tenant_id: User's tenant
             email: User's email
             user_id: User's ID
             role: User's role
@@ -63,6 +66,7 @@ class TokenService:
         expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         
         payload = {
+            "tenant_id": tenant_id,
             "sub": email,
             "id": user_id,
             "role": role,
@@ -76,12 +80,13 @@ class TokenService:
         return refresh_token, jti, expire
     
     @staticmethod
-    async def create_tokens(email: str, user_id: int, role: str, db: AsyncSession):
+    async def create_tokens(tenant_id: str, email: str, user_id: int, role: str, db: AsyncSession):
         """
         Creates access token + refresh token pair.
         Stores refresh token in database.
         
         Args:
+            tenant_id: User's tenant
             email: User's email
             user_id: User's ID
             role: User's role
@@ -91,15 +96,16 @@ class TokenService:
             Dictionary with access_token, refresh_token, and token_type
         """
         # Create access token (15 minutes)
-        access_token = TokenService.create_access_token(email, user_id, role)
+        access_token = TokenService.create_access_token(tenant_id, email, user_id, role)
         
         # Create refresh token (7 days)
-        refresh_token, jti, expires_at = TokenService.create_refresh_token(email, user_id, role)
+        refresh_token, jti, expires_at = TokenService.create_refresh_token(tenant_id, email, user_id, role)
         
         # Hash the JTI and store in database
         token_hash = hash_token(jti)
         
         db_refresh_token = RefreshToken(
+            tenant_id=tenant_id,
             user_id=user_id,
             token_hash=token_hash,
             expires_at=expires_at
@@ -149,12 +155,13 @@ class TokenService:
                     detail="Invalid token type"
                 )
             
+            tenant_id = payload.get("tenant_id")
             email = payload.get("sub")
             user_id = payload.get("id")
             role = payload.get("role")
             jti = payload.get("jti")
             
-            if not all([email, user_id, role, jti]):
+            if not all([tenant_id, email, user_id, role, jti]):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid token payload"
@@ -181,8 +188,8 @@ class TokenService:
                 )
             
             user = await db.scalar(select(User).where(User.id == user_id))
-            if not user.is_active:
-                raise HTTPException(status_code=403, detail="Account is inactive")
+            if not user or not user.is_active:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive")
 
             # Revoke old token (token rotation)
             db_token.revoked = True
@@ -193,7 +200,7 @@ class TokenService:
                 raise
 
             # Create new token pair
-            return await TokenService.create_tokens(email, user_id, role, db)
+            return await TokenService.create_tokens(tenant_id, email, user_id, role, db)
             
         except JWTError:
             raise HTTPException(

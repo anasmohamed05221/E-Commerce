@@ -39,8 +39,8 @@ def sanitize_log_data(data: Dict[str, Any]) -> Dict[str, Any]:
     - Security best practice
     """
     sensitive_fields = {
-        'password', 'token', 'secret', 'api_key', 'access_token', 
-        'refresh_token', 'credit_card', 'cvv', 'ssn'
+        'password', 'token', 'secret', 'api_key', 'access_token',
+        'refresh_token', 'credit_card', 'cvv', 'ssn', 'db_url'
     }
     
     sanitized = data.copy()

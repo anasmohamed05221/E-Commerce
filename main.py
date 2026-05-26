@@ -14,11 +14,12 @@ from core.celery_app import celery_app
 # Rate limiter imports
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from middleware.rate_limiter import limiter
+
+# Middleware imports
+from middleware import RequestIDMiddleware, get_request_id, TenantResolverMiddleware
 
 # Logging imports
 from core.logging_config import setup_logging, get_logger
-from middleware import RequestIDMiddleware, get_request_id
 from core.config import settings
 from fastapi.responses import JSONResponse
 from utils.deps import db_dependency
@@ -123,6 +124,8 @@ async def log_requests(request: Request, call_next):
 # Add request ID middleware
 app.add_middleware(RequestIDMiddleware)
 
+# Add Tenant Resolving middleware (LIFO Ordered)
+app.add_middleware(TenantResolverMiddleware)
 
 
 # Health check

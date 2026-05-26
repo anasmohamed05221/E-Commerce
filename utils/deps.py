@@ -1,6 +1,6 @@
 from core.database import SessionLocal
 from typing import Annotated
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from jose import JWTError, jwt
@@ -8,10 +8,21 @@ from starlette import status
 from core.config import settings
 from services.auth import AuthService
 from models.users import User
+from models.tenants import Tenant
 from models.enums import UserRole
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+def get_current_active_tenant(request: Request) -> Tenant:
+    """Return the tenant resolved by TenantResolverMiddleware for this request."""
+    tenant = getattr(request.state, "tenant", None)
+    if tenant is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Tenant could not be resolved.")
+    return tenant
+
+tenant_dependency = Annotated[Tenant, Depends(get_current_active_tenant)]
+
 
 async def get_db():
     db = SessionLocal()

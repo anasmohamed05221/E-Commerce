@@ -18,7 +18,7 @@ def get_current_active_tenant(request: Request) -> Tenant:
     """Return the tenant resolved by TenantResolverMiddleware for this request."""
     tenant = getattr(request.state, "tenant", None)
     if tenant is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Tenant could not be resolved.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Tenant could not be resolved")
     return tenant
 
 tenant_dependency = Annotated[Tenant, Depends(get_current_active_tenant)]

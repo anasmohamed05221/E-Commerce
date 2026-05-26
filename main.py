@@ -14,6 +14,7 @@ from core.celery_app import celery_app
 # Rate limiter imports
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from middleware.rate_limiter import limiter
 
 # Middleware imports
 from middleware import RequestIDMiddleware, get_request_id, TenantResolverMiddleware

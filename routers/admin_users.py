@@ -2,7 +2,7 @@ from fastapi import APIRouter, status, Request, Query
 from models.enums import UserRole
 from schemas.users import AdminUserListOut, AdminUserOut, UserRoleUpdate
 from services.users import UserService
-from utils.deps import db_dependency, admin_dependency
+from utils.deps import db_dependency, admin_dependency, tenant_dependency
 from middleware.rate_limiter import limiter
 from utils.logger import get_logger
 from typing import Optional
@@ -19,6 +19,7 @@ router = APIRouter(
 @limiter.limit("60/minute")
 async def get_all_users(request: Request,
                          db: db_dependency,
+                         tenant: tenant_dependency,
                          admin: admin_dependency,
                          limit: int = Query(ge=1, le=50, default=10),
                          offset: int = Query(ge=0, default=0),
@@ -34,7 +35,7 @@ async def get_all_users(request: Request,
 
 @router.get("/{user_id}", response_model=AdminUserOut, status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
-async def get_user(request: Request, db: db_dependency, admin: admin_dependency, user_id: int):
+async def get_user(request: Request, db: db_dependency, tenant: tenant_dependency, admin: admin_dependency, user_id: int):
     """Return a single user by ID. Admin only. Returns 404 if not found."""
     user = await UserService.get_user_by_id(db, user_id)
 
@@ -45,32 +46,32 @@ async def get_user(request: Request, db: db_dependency, admin: admin_dependency,
 
 @router.patch("/{user_id}/deactivate", response_model=AdminUserOut, status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute")
-async def deactivate_user(request: Request, db: db_dependency, admin: admin_dependency, user_id: int):
+async def deactivate_user(request: Request, db: db_dependency, tenant: tenant_dependency, admin: admin_dependency, user_id: int):
     """Deactivate a user account and revoke all their sessions. Admin only. Returns 400 if self-targeting, 409 if already inactive."""
     user = await UserService.deactivate_user(db, user_id, admin.id)
 
     logger.info("Admin deactivated user", extra={"admin_id": admin.id, "target_user_id": user_id})
 
-    return user      
+    return user
 
 
 @router.patch("/{user_id}/reactivate", response_model=AdminUserOut, status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute")
-async def reactivate_user(request: Request, db: db_dependency, admin: admin_dependency, user_id: int):
+async def reactivate_user(request: Request, db: db_dependency, tenant: tenant_dependency, admin: admin_dependency, user_id: int):
     """Reactivate a deactivated user account. Admin only. Returns 409 if already active."""
     user = await UserService.reactivate_user(db, user_id)
 
     logger.info("Admin reactivated user", extra={"admin_id": admin.id, "target_user_id": user_id})
 
-    return user 
+    return user
 
 
 @router.patch("/{user_id}/role", response_model=AdminUserOut, status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute")
-async def update_user_role(request: Request, db: db_dependency, admin: admin_dependency, user_id: int, body: UserRoleUpdate):
+async def update_user_role(request: Request, db: db_dependency, tenant: tenant_dependency, admin: admin_dependency, user_id: int, body: UserRoleUpdate):
     """Promote or demote a user's role. Admin only. Returns 400 if self-targeting, 409 if already has that role."""
     user = await UserService.update_user_role(db, user_id, body.role, admin.id)
 
     logger.info("Admin updated user role", extra={"admin_id": admin.id, "target_user_id": user_id, "new_role": body.role.value})
 
-    return user     
+    return user

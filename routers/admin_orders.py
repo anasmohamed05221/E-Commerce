@@ -2,7 +2,7 @@ from fastapi import APIRouter, status, Request, Query
 from models.enums import OrderStatus
 from schemas.orders import AdminOrderListOut, AdminOrderOut, OrderStatusUpdate
 from services.orders import OrderService
-from utils.deps import db_dependency, admin_dependency
+from utils.deps import db_dependency, admin_dependency, tenant_dependency
 from middleware.rate_limiter import limiter
 from utils.logger import get_logger
 from typing import Optional
@@ -18,6 +18,7 @@ router = APIRouter(
 @limiter.limit("60/minute")
 async def get_all_orders(request: Request,
                          db: db_dependency,
+                         tenant: tenant_dependency,
                          admin: admin_dependency,
                          limit: int = Query(ge=1, le=50, default=10),
                          offset: int = Query(ge=0, default=0),
@@ -32,18 +33,18 @@ async def get_all_orders(request: Request,
 
 @router.patch("/{order_id}/status", response_model=AdminOrderOut, status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute")
-async def update_order_status(request: Request, db: db_dependency, admin: admin_dependency, order_id: int,  body: OrderStatusUpdate):
+async def update_order_status(request: Request, db: db_dependency, tenant: tenant_dependency, admin: admin_dependency, order_id: int, body: OrderStatusUpdate):
     """Update an order's status. Admin only. Returns 404 if not found, 409 if the transition is invalid or unchanged."""
     order = await OrderService.update_order_status(db, body.status, order_id)
 
     logger.info("Order status updated", extra={"admin_id": admin.id, "order_id": order_id, "new_status": body.status})
-    
+
     return order
 
 
 @router.post("/{order_id}/cancel", response_model=AdminOrderOut, status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute")
-async def cancel_order(request: Request, db: db_dependency, admin: admin_dependency, order_id: int):
+async def cancel_order(request: Request, db: db_dependency, tenant: tenant_dependency, admin: admin_dependency, order_id: int):
     """Cancel an order. Admin only. Allowed for PENDING and CONFIRMED orders."""
     order = await OrderService.admin_cancel_order(db, order_id)
     logger.info("Order cancelled by admin", extra={"admin_id": admin.id, "order_id": order_id})

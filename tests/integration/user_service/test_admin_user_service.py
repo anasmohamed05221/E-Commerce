@@ -12,8 +12,9 @@ from utils.hashing import get_password_hash
 HASHED = get_password_hash("TestPassword123!")
 
 
-async def _make_user(session, email, role=UserRole.CUSTOMER, is_active=True):
+async def _make_user(session, test_tenant, email, role=UserRole.CUSTOMER, is_active=True):
     user = User(
+        tenant_id=test_tenant.id,
         email=email,
         first_name="Test",
         last_name="User",
@@ -57,19 +58,19 @@ async def test_get_all_users_role_filter_admin(session, verified_user, verified_
     assert users[0].role == UserRole.ADMIN
 
 
-async def test_get_all_users_is_active_filter(session, verified_user):
+async def test_get_all_users_is_active_filter(session, verified_user, test_tenant):
     """Returns only inactive users when is_active_filter=False."""
-    inactive = await _make_user(session, "inactive@example.com", is_active=False)
+    inactive = await _make_user(session, test_tenant, "inactive@example.com", is_active=False)
 
     users, total = await UserService.get_all_users(session, limit=10, offset=0, role_filter=None, is_active_filter=False)
     assert total == 1
     assert users[0].id == inactive.id
 
 
-async def test_get_all_users_pagination(session):
+async def test_get_all_users_pagination(session, test_tenant):
     """Limit and offset control the page; total reflects full count."""
     for i in range(3):
-        await _make_user(session, f"user{i}@example.com")
+        await _make_user(session, test_tenant, f"user{i}@example.com")
 
     users, total = await UserService.get_all_users(session, limit=2, offset=0, role_filter=None, is_active_filter=None)
     assert total == 3
@@ -105,9 +106,9 @@ async def test_deactivate_user_self(session, verified_admin):
     assert exc.value.status_code == 400
 
 
-async def test_deactivate_user_already_inactive(session, verified_admin):
+async def test_deactivate_user_already_inactive(session, verified_admin, test_tenant):
     """Raises 409 when user is already inactive."""
-    inactive = await _make_user(session, "inactive2@example.com", is_active=False)
+    inactive = await _make_user(session, test_tenant, "inactive2@example.com", is_active=False)
     with pytest.raises(HTTPException) as exc:
         await UserService.deactivate_user(session, inactive.id, verified_admin.id)
     assert exc.value.status_code == 409
@@ -122,7 +123,7 @@ async def test_deactivate_user_sets_inactive(session, verified_admin, verified_u
 
 async def test_deactivate_user_revokes_tokens(session, verified_admin, verified_user):
     """Revokes all refresh tokens of the target user."""
-    await TokenService.create_tokens(verified_user.email, verified_user.id, verified_user.role, session)
+    await TokenService.create_tokens(str(verified_user.tenant_id), verified_user.email, verified_user.id, verified_user.role, session)
 
     await UserService.deactivate_user(session, verified_user.id, verified_admin.id)
 
@@ -144,9 +145,9 @@ async def test_reactivate_user_already_active(session, verified_admin, verified_
     assert exc.value.status_code == 409
 
 
-async def test_reactivate_user_sets_active(session, verified_admin):
+async def test_reactivate_user_sets_active(session, test_tenant):
     """Sets is_active=True on a previously deactivated user."""
-    inactive = await _make_user(session, "inactive3@example.com", is_active=False)
+    inactive = await _make_user(session, test_tenant, "inactive3@example.com", is_active=False)
 
     await UserService.reactivate_user(session, inactive.id)
 
@@ -177,9 +178,9 @@ async def test_update_user_role_promotes_to_admin(session, verified_admin, verif
     assert verified_user.role == UserRole.ADMIN
 
 
-async def test_update_user_role_demotes_to_customer(session, verified_admin):
+async def test_update_user_role_demotes_to_customer(session, verified_admin, test_tenant):
     """Demotes an admin to customer."""
-    another_admin = await _make_user(session, "admin2@example.com", role=UserRole.ADMIN)
+    another_admin = await _make_user(session, test_tenant, "admin2@example.com", role=UserRole.ADMIN)
     await UserService.update_user_role(session, another_admin.id, UserRole.CUSTOMER, verified_admin.id)
     await session.refresh(another_admin)
     assert another_admin.role == UserRole.CUSTOMER

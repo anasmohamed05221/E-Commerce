@@ -50,9 +50,10 @@ async def test_set_default_not_found(client, user_token):
 
 
 @pytest.mark.asyncio
-async def test_set_default_wrong_owner(client, user_token, session):
+async def test_set_default_wrong_owner(client, user_token, session, test_tenant):
     """Returns 404 when the address belongs to a different user."""
     other_user = User(
+        tenant_id=test_tenant.id,
         email="other@example.com",
         first_name="Other",
         last_name="User",
@@ -66,6 +67,7 @@ async def test_set_default_wrong_owner(client, user_token, session):
     await session.refresh(other_user)
 
     other_address = Address(
+        tenant_id=test_tenant.id,
         user_id=other_user.id,
         street="1 Other St",
         city="Alexandria",

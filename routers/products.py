@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Request, Depends
 from schemas.products import ProductListOut, ProductDetailOut, ProductFilterParams
 from services.products import ProductService
-from utils.deps import db_dependency
+from utils.deps import db_dependency, tenant_dependency
 from middleware.rate_limiter import limiter
 
 
@@ -14,7 +14,7 @@ router = APIRouter(
 @router.get("/", response_model=ProductListOut, status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
 async def get_products(
-    db: db_dependency, request: Request,
+    db: db_dependency, request: Request, tenant: tenant_dependency,
     filters: ProductFilterParams = Depends()
     ):
     """List products with pagination and optional filtering by category and price range."""
@@ -27,7 +27,7 @@ async def get_products(
 
 @router.get("/{product_id}", response_model=ProductDetailOut, status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
-async def get_product_details(db: db_dependency, request: Request, product_id: int):
+async def get_product_details(db: db_dependency, request: Request, tenant: tenant_dependency, product_id: int):
     """Get detailed product information by ID."""
     product = await ProductService.get_product_by_id(db, product_id)
     if product is None:

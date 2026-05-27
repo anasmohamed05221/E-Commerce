@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, status
 from schemas.categories import CategoryOut
 from services.categories import CategoryService
-from utils.deps import db_dependency
+from utils.deps import db_dependency, tenant_dependency
 from middleware.rate_limiter import limiter
 
 
@@ -12,7 +12,7 @@ router = APIRouter(
 
 @router.get("/", response_model=list[CategoryOut], status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
-async def get_categories(db: db_dependency, request: Request):
+async def get_categories(db: db_dependency, request: Request, tenant: tenant_dependency):
     """List all product categories."""
     categories = await CategoryService.get_categories(db)
     return categories

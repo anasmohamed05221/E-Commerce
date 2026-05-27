@@ -10,12 +10,12 @@ from models.inventory_changes import InventoryChange
 from models.enums import PaymentMethod, PaymentStatus
 
 
-async def test_checkout_success(session, verified_user, product_factory, test_address):
+async def test_checkout_success(session, verified_user, product_factory, test_address, test_tenant):
     """Full checkout flow creates order, decrements stock, logs inventory change, and clears cart."""
     product = await product_factory(name="Laptop", price=1000.00, stock=10)
-    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=2)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, product_id=product.id, quantity=2)
 
-    order = await CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
+    order = await CheckoutService.checkout(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
 
     # Order created with correct total
     assert order is not None
@@ -44,38 +44,38 @@ async def test_checkout_success(session, verified_user, product_factory, test_ad
     assert cart_count == 0
 
 
-async def test_checkout_cart_empty(session, verified_user, test_address):
+async def test_checkout_cart_empty(session, verified_user, test_address, test_tenant):
     """Checkout with no cart items raises 400."""
     with pytest.raises(HTTPException) as exc:
-        await CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
+        await CheckoutService.checkout(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
     assert exc.value.status_code == 400
     assert exc.value.detail == "Can't checkout while cart is empty"
 
 
-async def test_checkout_stock_insufficient(session, verified_user, product_factory, test_address):
+async def test_checkout_stock_insufficient(session, verified_user, product_factory, test_address, test_tenant):
     """Checkout raises 409 when a cart item quantity exceeds current stock."""
     product = await product_factory(name="Laptop", price=1000.00, stock=10)
-    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=2)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, product_id=product.id, quantity=2)
     product.stock = 1
     await session.commit()
 
     with pytest.raises(HTTPException) as exc:
-        await CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
+        await CheckoutService.checkout(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
     assert exc.value.status_code == 409
     assert exc.value.detail["message"] == "Not enough stock available"
 
 
-async def test_checkout_multiple_cart_items(session, verified_user, product_factory, test_address):
+async def test_checkout_multiple_cart_items(session, verified_user, product_factory, test_address, test_tenant):
     """Checkout with multiple products creates all order items and clears the full cart."""
     product1 = await product_factory(name="Laptop", price=1000.00, stock=10)
     product2 = await product_factory(name="Monitor", price=500.00, stock=7)
     product3 = await product_factory(name="Keyboard", price=60.00, stock=5)
 
-    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product1.id, quantity=2)
-    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product2.id, quantity=1)
-    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product3.id, quantity=3)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, product_id=product1.id, quantity=2)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, product_id=product2.id, quantity=1)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, product_id=product3.id, quantity=3)
 
-    order = await CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
+    order = await CheckoutService.checkout(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
 
     assert order is not None
     assert order.user_id == verified_user.id
@@ -109,12 +109,12 @@ async def test_checkout_multiple_cart_items(session, verified_user, product_fact
     assert cart_count == 0
 
 
-async def test_checkout_stock_equivalent(session, verified_user, product_factory, test_address):
+async def test_checkout_stock_equivalent(session, verified_user, product_factory, test_address, test_tenant):
     """Checkout succeeds when quantity exactly matches available stock, leaving stock at zero."""
     product = await product_factory(name="Laptop", price=1000.00, stock=10)
-    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=10)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, product_id=product.id, quantity=10)
 
-    order = await CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
+    order = await CheckoutService.checkout(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.COD)
 
     assert order is not None
     assert order.user_id == verified_user.id
@@ -133,13 +133,13 @@ def _mock_stripe_session(session_id="cs_test_123", url="https://checkout.stripe.
     return mock_session
 
 
-async def test_stripe_checkout_creates_order_without_decrementing_stock(session, verified_user, product_factory, test_address):
+async def test_stripe_checkout_creates_order_without_decrementing_stock(session, verified_user, product_factory, test_address, test_tenant):
     """Stripe checkout creates an UNPAID order with session ID but does not decrement stock or clear cart."""
     product = await product_factory(name="Laptop", price=1000.00, stock=10)
-    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=2)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, product_id=product.id, quantity=2)
 
     with patch("services.checkout.stripe.checkout.Session.create", return_value=_mock_stripe_session()):
-        order = await CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.STRIPE)
+        order = await CheckoutService.checkout(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.STRIPE)
 
     assert order.payment_method == PaymentMethod.STRIPE
     assert order.payment_status == PaymentStatus.UNPAID
@@ -155,14 +155,14 @@ async def test_stripe_checkout_creates_order_without_decrementing_stock(session,
     assert cart_count == 1
 
 
-async def test_stripe_checkout_failure_marks_order_failed(session, verified_user, product_factory, test_address):
+async def test_stripe_checkout_failure_marks_order_failed(session, verified_user, product_factory, test_address, test_tenant):
     """When Stripe API raises StripeError, the order is marked FAILED and 502 is raised."""
     product = await product_factory(name="Laptop", price=1000.00, stock=10)
-    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=1)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, product_id=product.id, quantity=1)
 
     with patch("services.checkout.stripe.checkout.Session.create", side_effect=stripe.StripeError("Stripe unavailable")):
         with pytest.raises(HTTPException) as exc:
-            await CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.STRIPE)
+            await CheckoutService.checkout(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.STRIPE)
 
     assert exc.value.status_code == 502
     # Stock not decremented
@@ -170,16 +170,16 @@ async def test_stripe_checkout_failure_marks_order_failed(session, verified_user
     assert product.stock == 10
 
 
-async def test_stripe_reuse_if_valid_returns_existing_order(session, verified_user, product_factory, test_address):
+async def test_stripe_reuse_if_valid_returns_existing_order(session, verified_user, product_factory, test_address, test_tenant):
     """If an UNPAID Stripe order with a session already exists, it is returned without creating a new order."""
     product = await product_factory(name="Laptop", price=1000.00, stock=10)
-    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=1)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, product_id=product.id, quantity=1)
 
     with patch("services.checkout.stripe.checkout.Session.create", return_value=_mock_stripe_session()):
-        first_order = await CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.STRIPE)
+        first_order = await CheckoutService.checkout(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.STRIPE)
 
     with patch("services.checkout.stripe.checkout.Session.retrieve", return_value=_mock_stripe_session()):
-        second_order = await CheckoutService.checkout(db=session, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.STRIPE)
+        second_order = await CheckoutService.checkout(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, address_id=test_address.id, payment_method=PaymentMethod.STRIPE)
 
     assert first_order.id == second_order.id
     assert second_order.checkout_url == "https://checkout.stripe.com/pay/cs_test_123"

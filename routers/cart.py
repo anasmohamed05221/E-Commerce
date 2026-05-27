@@ -1,6 +1,6 @@
 from fastapi import APIRouter, status, Request
 from schemas.cart import CartOut, CartItemOut, CartItemCreate, CartItemUpdate
-from utils.deps import db_dependency, customer_dependency
+from utils.deps import db_dependency, customer_dependency, tenant_dependency
 from services.cart import CartService
 from middleware.rate_limiter import limiter
 from utils.logger import get_logger
@@ -15,7 +15,7 @@ router = APIRouter(
 
 @router.get("/", response_model=CartOut, status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
-async def get_cart(request: Request, db: db_dependency, current_user: customer_dependency):
+async def get_cart(request: Request, db: db_dependency, tenant: tenant_dependency, current_user: customer_dependency):
     """
     View current user's cart (protected endpoint).
     """
@@ -29,11 +29,11 @@ async def get_cart(request: Request, db: db_dependency, current_user: customer_d
 
 @router.post("/", response_model=CartItemOut, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
-async def add_to_cart(request: Request, db: db_dependency, current_user: customer_dependency, new_item: CartItemCreate):
+async def add_to_cart(request: Request, db: db_dependency, tenant: tenant_dependency, current_user: customer_dependency, new_item: CartItemCreate):
     """
     Add item to current user's cart (protected endpoint).
     """
-    cart_item = await CartService.add_to_cart(db=db, user_id=current_user.id, product_id=new_item.product_id,
+    cart_item = await CartService.add_to_cart(db=db, tenant_id=tenant.id, user_id=current_user.id, product_id=new_item.product_id,
                                         quantity=new_item.quantity)
 
     logger.info("Item added to cart", extra={"user_id": current_user.id, "product_id": new_item.product_id, "quantity": new_item.quantity})
@@ -43,7 +43,7 @@ async def add_to_cart(request: Request, db: db_dependency, current_user: custome
 
 @router.patch("/{product_id}", response_model=CartItemOut, status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
-async def update_cart_item(request: Request, db: db_dependency, current_user: customer_dependency, product_id: int, update: CartItemUpdate):
+async def update_cart_item(request: Request, db: db_dependency, tenant: tenant_dependency, current_user: customer_dependency, product_id: int, update: CartItemUpdate):
     """
     Update item quantity (protected endpoint).
     """
@@ -56,17 +56,17 @@ async def update_cart_item(request: Request, db: db_dependency, current_user: cu
 
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
 @limiter.limit("5/minute")
-async def clear_cart(request: Request, db: db_dependency, current_user: customer_dependency):
+async def clear_cart(request: Request, db: db_dependency, tenant: tenant_dependency, current_user: customer_dependency):
     """Clear the user's cart."""
 
-    await CartService.clear_cart(db, current_user.id)
+    await CartService.clear_cart(db, tenant.id, current_user.id)
 
     logger.info("Cart cleared", extra={"user_id": current_user.id})
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 @limiter.limit("10/minute")
-async def remove_from_cart(request: Request, db: db_dependency, current_user: customer_dependency, product_id: int):
+async def remove_from_cart(request: Request, db: db_dependency, tenant: tenant_dependency, current_user: customer_dependency, product_id: int):
     """
     Remove item from cart
     """

@@ -2,6 +2,15 @@ import pytest
 import uuid
 from unittest.mock import AsyncMock, MagicMock
 from models.tenants import Tenant
+from httpx import AsyncClient, ASGITransport
+from main import app
+
+
+@pytest.fixture
+async def client():
+    """Plain client with no default headers — lets middleware tests exercise rejection paths."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
 
 
 @pytest.fixture

@@ -6,14 +6,14 @@ from services.cart import CartService
 from utils.hashing import get_password_hash
 
 
-async def test_clear_cart_removes_all_items(session, verified_user, product_factory):
+async def test_clear_cart_removes_all_items(session, verified_user, product_factory, test_tenant):
     """All cart items for the user are deleted after clear_cart."""
     p1 = await product_factory(name="Laptop", stock=10)
     p2 = await product_factory(name="Mouse", price=50.00, stock=5)
-    await CartService.add_to_cart(session, verified_user.id, p1.id, 1)
-    await CartService.add_to_cart(session, verified_user.id, p2.id, 2)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, product_id=p1.id, quantity=1)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, product_id=p2.id, quantity=2)
 
-    await CartService.clear_cart(session, verified_user.id)
+    await CartService.clear_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id)
 
     count = await session.scalar(
         select(func.count()).select_from(CartItem).where(CartItem.user_id == verified_user.id)
@@ -21,9 +21,9 @@ async def test_clear_cart_removes_all_items(session, verified_user, product_fact
     assert count == 0
 
 
-async def test_clear_cart_empty_cart_is_idempotent(session, verified_user):
+async def test_clear_cart_empty_cart_is_idempotent(session, verified_user, test_tenant):
     """Clearing an already-empty cart succeeds without raising any error."""
-    await CartService.clear_cart(session, verified_user.id)
+    await CartService.clear_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id)
 
     count = await session.scalar(
         select(func.count()).select_from(CartItem).where(CartItem.user_id == verified_user.id)
@@ -31,9 +31,10 @@ async def test_clear_cart_empty_cart_is_idempotent(session, verified_user):
     assert count == 0
 
 
-async def test_clear_cart_only_removes_own_items(session, verified_user, product_factory):
+async def test_clear_cart_only_removes_own_items(session, verified_user, product_factory, test_tenant):
     """Only the requesting user's cart items are deleted; other users' items are unaffected."""
     other_user = User(
+        tenant_id=test_tenant.id,
         email="other@example.com",
         first_name="Other",
         last_name="User",
@@ -47,10 +48,10 @@ async def test_clear_cart_only_removes_own_items(session, verified_user, product
     await session.refresh(other_user)
 
     product = await product_factory(stock=10)
-    await CartService.add_to_cart(session, verified_user.id, product.id, 1)
-    await CartService.add_to_cart(session, other_user.id, product.id, 1)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, product_id=product.id, quantity=1)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=other_user.id, product_id=product.id, quantity=1)
 
-    await CartService.clear_cart(session, verified_user.id)
+    await CartService.clear_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id)
 
     own_count = await session.scalar(
         select(func.count()).select_from(CartItem).where(CartItem.user_id == verified_user.id)

@@ -34,9 +34,10 @@ async def test_delete_address_not_found(client, user_token):
 
 
 @pytest.mark.asyncio
-async def test_delete_address_wrong_owner(client, user_token, session):
+async def test_delete_address_wrong_owner(client, user_token, session, test_tenant):
     """Returns 404 when attempting to delete another user's address."""
     other_user = User(
+        tenant_id=test_tenant.id,
         email="other@example.com",
         first_name="Other",
         last_name="User",
@@ -50,6 +51,7 @@ async def test_delete_address_wrong_owner(client, user_token, session):
     await session.refresh(other_user)
 
     other_address = Address(
+        tenant_id=test_tenant.id,
         user_id=other_user.id,
         street="1 Other St",
         city="Alexandria",

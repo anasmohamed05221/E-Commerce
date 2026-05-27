@@ -39,10 +39,11 @@ def _mock_charge_refunded_event(event_id="evt_refund_123", payment_intent_id="pi
 # Fixtures
 
 @pytest.fixture
-async def stripe_order_with_pi(session, verified_user, product_factory, test_address):
+async def stripe_order_with_pi(session, verified_user, product_factory, test_address, test_tenant):
     """Stripe UNPAID order with stripe_payment_intent_id set."""
     await product_factory(name="Laptop", price=500.00, stock=5)
     order = Order(
+        tenant_id=test_tenant.id,
         user_id=verified_user.id,
         address_id=test_address.id,
         total_amount=500.00,

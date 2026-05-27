@@ -22,9 +22,10 @@ async def test_get_address_not_found(session, verified_user):
     assert exc.value.status_code == 404
 
 
-async def test_get_address_wrong_owner(session, verified_user):
+async def test_get_address_wrong_owner(session, verified_user, test_tenant):
     """Raises 404 when the address belongs to a different user."""
     other_user = User(
+        tenant_id=test_tenant.id,
         email="other@example.com",
         first_name="Other",
         last_name="User",
@@ -38,7 +39,7 @@ async def test_get_address_wrong_owner(session, verified_user):
     await session.refresh(other_user)
 
     data = AddressCreate(street="1 Other St", city="Alexandria", country="Egypt", postal_code="21500")
-    other_address = await AddressService.create_address(session, other_user.id, data)
+    other_address = await AddressService.create_address(session, tenant_id=test_tenant.id, user_id=other_user.id, data=data)
 
     with pytest.raises(HTTPException) as exc:
         await AddressService.get_address(session, verified_user.id, other_address.id)

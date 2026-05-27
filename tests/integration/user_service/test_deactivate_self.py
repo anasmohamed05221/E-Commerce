@@ -23,7 +23,7 @@ async def test_deactivate_self_sets_inactive(session, verified_user):
 
 async def test_deactivate_self_revokes_tokens(session, verified_user):
     """Revokes all refresh tokens on success."""
-    await TokenService.create_tokens(verified_user.email, verified_user.id, verified_user.role, session)
+    await TokenService.create_tokens(str(verified_user.tenant_id), verified_user.email, verified_user.id, verified_user.role, session)
 
     await UserService.deactivate_self(session, verified_user, "TestPassword123!")
 

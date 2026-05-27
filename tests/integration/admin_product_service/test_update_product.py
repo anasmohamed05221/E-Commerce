@@ -18,10 +18,10 @@ async def test_update_product_success(session, product_factory):
     assert updated.stock == 5  # unchanged
 
 
-async def test_update_product_category(session, product_factory):
+async def test_update_product_category(session, product_factory, test_tenant):
     """category_id can be updated to a valid category."""
     product = await product_factory()
-    new_category = Category(name="Accessories", description="Accessories")
+    new_category = Category(tenant_id=test_tenant.id, name="Accessories", description="Accessories")
     session.add(new_category)
     await session.commit()
     await session.refresh(new_category)

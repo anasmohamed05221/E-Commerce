@@ -30,7 +30,9 @@ def register_tenant_scoping():
             tenant_id = execute_state.session.info.get("tenant_id")
             if tenant_id is None:
                 return
-            execute_state.user_defined_options += [
-                with_loader_criteria(model, lambda cls, tid=tenant_id: cls.tenant_id == tid, include_aliases=True)
-                for model in TENANT_SCOPED_MODELS
-            ]
+            execute_state.statement = execute_state.statement.options(
+                *[
+                    with_loader_criteria(model, model.tenant_id == tenant_id, include_aliases=True)
+                    for model in TENANT_SCOPED_MODELS
+                ]
+            )

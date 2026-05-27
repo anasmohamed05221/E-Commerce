@@ -5,10 +5,10 @@ from schemas.addresses import AddressCreate
 from utils.hashing import get_password_hash
 
 
-async def test_get_addresses_returns_all(session, verified_user, test_address):
+async def test_get_addresses_returns_all(session, verified_user, test_address, test_tenant):
     """Returns all addresses belonging to the user."""
     data = AddressCreate(street="789 Second St", city="Giza", country="Egypt", postal_code="12345")
-    await AddressService.create_address(session, verified_user.id, data)
+    await AddressService.create_address(session, tenant_id=test_tenant.id, user_id=verified_user.id, data=data)
 
     addresses = await AddressService.get_addresses(session, verified_user.id)
 
@@ -22,9 +22,10 @@ async def test_get_addresses_empty(session, verified_user):
     assert addresses == []
 
 
-async def test_get_addresses_excludes_other_users(session, verified_user, test_address):
+async def test_get_addresses_excludes_other_users(session, verified_user, test_address, test_tenant):
     """Does not return addresses belonging to a different user."""
     other_user = User(
+        tenant_id=test_tenant.id,
         email="other@example.com",
         first_name="Other",
         last_name="User",
@@ -38,7 +39,7 @@ async def test_get_addresses_excludes_other_users(session, verified_user, test_a
     await session.refresh(other_user)
 
     data = AddressCreate(street="1 Other St", city="Alexandria", country="Egypt", postal_code="21500")
-    await AddressService.create_address(session, other_user.id, data)
+    await AddressService.create_address(session, tenant_id=test_tenant.id, user_id=other_user.id, data=data)
 
     addresses = await AddressService.get_addresses(session, verified_user.id)
 

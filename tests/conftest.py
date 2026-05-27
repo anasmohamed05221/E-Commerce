@@ -2,6 +2,7 @@ import os
 os.environ["ENV"] = "testing"
 os.environ["CELERY_TASK_ALWAYS_EAGER"] = "True"
 import hashlib
+import uuid
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import event
@@ -19,7 +20,9 @@ from services.checkout import CheckoutService
 from main import app
 from core.database import Base
 from core.config import settings
+from contextlib import asynccontextmanager
 from utils.deps import get_db
+import middleware.tenant_resolver as tenant_resolver_module
 from unittest.mock import AsyncMock
 from core.redis_client import redis_client
 from filelock import FileLock
@@ -107,24 +110,37 @@ async def session(connection):
 
 
 @pytest.fixture
-async def client(connection):
+async def client(connection, test_tenant):
     """
-    HTTPX test client. The app's get_db dependency is overridden to use
-    the same connection, so fixture data and app data share one transaction.
+    HTTPX test client. Both get_db and the middleware's SessionLocal are overridden
+    to share the test connection. The real TenantResolverMiddleware runs and resolves
+    test_tenant via the X-Tenant-API-Key default header on every request.
     """
     async def override_get_db():
-        async with AsyncSession(bind=connection, expire_on_commit=False) as session:
-            yield session
+        async with AsyncSession(bind=connection, expire_on_commit=False) as db_session:
+            db_session.info["tenant_id"] = test_tenant.id
+            yield db_session
 
+    @asynccontextmanager
+    async def test_session_local():
+        async with AsyncSession(bind=connection, expire_on_commit=False) as db_session:
+            db_session.info["tenant_id"] = test_tenant.id
+            yield db_session
+
+    original_session_local = tenant_resolver_module.SessionLocal
+    tenant_resolver_module.SessionLocal = test_session_local
     app.dependency_overrides[get_db] = override_get_db
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://test"
-    ) as ac:
-        yield ac
-
-    app.dependency_overrides.clear()
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+            headers={"X-Tenant-API-Key": test_tenant._plaintext_api_key}
+        ) as ac:
+            yield ac
+    finally:
+        tenant_resolver_module.SessionLocal = original_session_local
+        app.dependency_overrides.clear()
 
 
 # Redis Mock
@@ -157,6 +173,8 @@ async def test_tenant(session, worker_id):
     session.add(tenant)
     await session.commit()
     await session.refresh(tenant)
+    session.info["tenant_id"] = tenant.id
+    tenant._plaintext_api_key = f"test-api-key-{worker_id}"
     return tenant
 
 
@@ -240,7 +258,8 @@ async def test_category(session, test_tenant):
 @pytest.fixture
 async def product_factory(session, test_category, test_tenant):
     """Factory to create products. Usage: product = await product_factory(name=..., stock=...)"""
-    async def _create(*, name="Laptop", price=1000.00, stock=10):
+    async def _create(*, name=None, price=1000.00, stock=10):
+        name = name or f"Product-{uuid.uuid4().hex[:8]}"
         product = Product(tenant_id=test_tenant.id, name=name, price=price, stock=stock, category_id=test_category.id)
         session.add(product)
         await session.commit()
@@ -278,12 +297,18 @@ async def test_address(session, verified_user, test_tenant):
 
 
 @pytest.fixture
-async def order_factory(session, verified_user, product_factory, test_address):
+async def order_factory(session, verified_user, product_factory, test_address, test_tenant):
     """Factory to create orders via the full checkout flow."""
     async def _create(products_and_quantities=None):
         if products_and_quantities is None:
             products_and_quantities = [(await product_factory(), 2)]
         for product, quantity in products_and_quantities:
-            await CartService.add_to_cart(session, verified_user.id, product.id, quantity)
-        return await CheckoutService.checkout(session, verified_user.id, test_address.id, PaymentMethod.COD)
+            await CartService.add_to_cart(
+                db=session, tenant_id=test_tenant.id, user_id=verified_user.id,
+                product_id=product.id, quantity=quantity
+            )
+        return await CheckoutService.checkout(
+            db=session, tenant_id=test_tenant.id, user_id=verified_user.id,
+            address_id=test_address.id, payment_method=PaymentMethod.COD
+        )
     return _create

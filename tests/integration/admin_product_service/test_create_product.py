@@ -4,7 +4,7 @@ from services.products import ProductService
 from schemas.products import ProductCreate
 
 
-async def test_create_product_success(session, test_category):
+async def test_create_product_success(session, test_category, test_tenant):
     """Product is persisted and returned with category eagerly loaded."""
     body = ProductCreate(
         name="Laptop",
@@ -15,7 +15,7 @@ async def test_create_product_success(session, test_category):
         image_url="http://example.com/laptop.jpg"
     )
 
-    product = await ProductService.create_product(session, body)
+    product = await ProductService.create_product(session, body, tenant_id=test_tenant.id)
 
     assert product.id is not None
     assert product.name == "Laptop"
@@ -26,33 +26,33 @@ async def test_create_product_success(session, test_category):
     assert product.category.id == test_category.id
 
 
-async def test_create_product_invalid_category(session):
+async def test_create_product_invalid_category(session, test_tenant):
     """Raises 404 when category_id does not exist."""
     body = ProductCreate(name="Ghost", price=10.00, stock=1, category_id=99999)
 
     with pytest.raises(HTTPException) as exc:
-        await ProductService.create_product(session, body)
+        await ProductService.create_product(session, body, tenant_id=test_tenant.id)
 
     assert exc.value.status_code == 404
 
 
-async def test_create_product_minimal_fields(session, test_category):
+async def test_create_product_minimal_fields(session, test_category, test_tenant):
     """Optional fields default to None when not provided."""
     body = ProductCreate(name="Basic", price=5.00, stock=0, category_id=test_category.id)
 
-    product = await ProductService.create_product(session, body)
+    product = await ProductService.create_product(session, body, tenant_id=test_tenant.id)
 
     assert product.description is None
     assert product.image_url is None
 
 
-async def test_create_product_duplicate_name(session, product_factory, test_category):
+async def test_create_product_duplicate_name(session, product_factory, test_category, test_tenant):
     """Raises 409 when a product with the same name already exists."""
     await product_factory(name="Laptop")
 
     body = ProductCreate(name="Laptop", price=500.00, stock=5, category_id=test_category.id)
 
     with pytest.raises(HTTPException) as exc:
-        await ProductService.create_product(session, body)
+        await ProductService.create_product(session, body, tenant_id=test_tenant.id)
 
     assert exc.value.status_code == 409

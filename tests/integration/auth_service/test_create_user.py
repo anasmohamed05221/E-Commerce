@@ -7,7 +7,7 @@ from services.auth import AuthService
 from fastapi import HTTPException
 
 
-async def test_create_user(session):
+async def test_create_user(session, test_tenant):
     """Test creating a user in the database."""
     user_data = CreateUserRequest(
         email="test@example.com",
@@ -17,7 +17,7 @@ async def test_create_user(session):
         phone_number="+201111111111"
     )
     with patch("tasks.emails.send_email_task.delay"):
-        created_user = await AuthService.create_user(user_data, session)
+        created_user = await AuthService.create_user(user_data, session, tenant_id=test_tenant.id)
 
     assert created_user.id is not None
     assert created_user.email == "test@example.com"
@@ -29,7 +29,7 @@ async def test_create_user(session):
     assert db_user.email == created_user.email
 
 
-async def test_create_user_duplicate_email(session):
+async def test_create_user_duplicate_email(session, test_tenant):
     """Test that duplicate email registration fails."""
     user_data = CreateUserRequest(
         email="duplicate@example.com",
@@ -39,9 +39,9 @@ async def test_create_user_duplicate_email(session):
         phone_number="+201111111111"
     )
     with patch("tasks.emails.send_email_task.delay"):
-        await AuthService.create_user(user_data, session)
+        await AuthService.create_user(user_data, session, tenant_id=test_tenant.id)
         with pytest.raises(HTTPException) as exc_info:
-            await AuthService.create_user(user_data, session)
+            await AuthService.create_user(user_data, session, tenant_id=test_tenant.id)
 
     assert exc_info.value.status_code == 409
     assert "already registered" in exc_info.value.detail.lower()

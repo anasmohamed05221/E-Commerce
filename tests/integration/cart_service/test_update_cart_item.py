@@ -3,10 +3,10 @@ from fastapi import HTTPException
 from services.cart import CartService
 
 
-async def test_update_cart_item_success(session, verified_user, product_factory):
+async def test_update_cart_item_success(session, verified_user, product_factory, test_tenant):
     """Updating quantity sets the new value correctly."""
     product = await product_factory(stock=10)
-    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=2)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, product_id=product.id, quantity=2)
 
     cart_item = await CartService.update_cart_item(db=session, user_id=verified_user.id, product_id=product.id, new_quantity=5)
 
@@ -24,10 +24,10 @@ async def test_update_cart_item_not_found(session, verified_user, product_factor
     assert exc.value.status_code == 404
 
 
-async def test_update_cart_item_exceeds_stock(session, verified_user, product_factory):
+async def test_update_cart_item_exceeds_stock(session, verified_user, product_factory, test_tenant):
     """Updating quantity beyond stock raises 409."""
     product = await product_factory(stock=5)
-    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=2)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, product_id=product.id, quantity=2)
 
     with pytest.raises(HTTPException) as exc:
         await CartService.update_cart_item(db=session, user_id=verified_user.id, product_id=product.id, new_quantity=6)

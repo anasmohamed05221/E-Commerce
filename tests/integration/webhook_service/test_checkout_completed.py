@@ -38,11 +38,12 @@ def _mock_event(event_id, event_type, session_obj):
 # Fixtures
 
 @pytest.fixture
-async def stripe_order_with_cart(session, verified_user, product_factory, test_address):
+async def stripe_order_with_cart(session, verified_user, product_factory, test_address, test_tenant):
     """Stripe UNPAID order with cart items but NO order items -- matches real pre-webhook state."""
     product = await product_factory(name="Laptop", price=1000.00, stock=10)
-    await CartService.add_to_cart(session, verified_user.id, product.id, 2)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, product_id=product.id, quantity=2)
     order = Order(
+        tenant_id=test_tenant.id,
         user_id=verified_user.id,
         address_id=test_address.id,
         total_amount=2000.00,
@@ -101,7 +102,7 @@ async def test_checkout_completed_success(session, stripe_order_with_cart):
 async def test_checkout_completed_idempotent(session, stripe_order_with_cart):
     """Duplicate webhook with same event_id is skipped — order remains unchanged."""
     order, _ = stripe_order_with_cart
-    already_processed = ProcessedWebhookEvent(event_id="evt_duplicate")
+    already_processed = ProcessedWebhookEvent(tenant_id=order.tenant_id, event_id="evt_duplicate")
     session.add(already_processed)
     await session.commit()
 

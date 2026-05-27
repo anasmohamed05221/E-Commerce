@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.security import OAuth2PasswordRequestForm
-from utils.deps import db_dependency
+from utils.deps import db_dependency, tenant_dependency
 from starlette import status
 from schemas.auth import (Token, VerifyEmailRequest, CreateUserRequest, ForgotPasswordRequest,
                           RevokeTokenRequest, RefreshTokenRequest, ResetPasswordRequest, ResendVerificationRequest)
@@ -21,9 +21,9 @@ router = APIRouter(
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 @limiter.limit("3/minute")
-async def create_user(request: Request, body: CreateUserRequest, db: db_dependency):
+async def create_user(request: Request, body: CreateUserRequest, db: db_dependency, tenant: tenant_dependency):
     """Register a new user and send verification email."""
-    user = await AuthService.create_user(body, db)
+    user = await AuthService.create_user(body, db, tenant.id)
 
     logger.info(
         "User registered successfully",
@@ -35,11 +35,11 @@ async def create_user(request: Request, body: CreateUserRequest, db: db_dependen
 
 @router.post("/token", response_model=Token)
 @limiter.limit("5/minute")
-async def login_for_access_token(request: Request, db: db_dependency, form_data: OAuth2PasswordRequestForm = Depends()):
+async def login_for_access_token(request: Request, db: db_dependency, tenant: tenant_dependency, form_data: OAuth2PasswordRequestForm = Depends()):
     """Authenticate user and return access + refresh token pair."""
     user = await AuthService.authenticate_user(form_data.username, form_data.password, db)
 
-    token = await TokenService.create_tokens(user.email, user.id, user.role, db)
+    token = await TokenService.create_tokens(str(tenant.id), user.email, user.id, user.role, db)
 
     # Log successful login
     logger.info(
@@ -53,10 +53,10 @@ async def login_for_access_token(request: Request, db: db_dependency, form_data:
 
 @router.post("/verify", status_code=status.HTTP_200_OK)
 @limiter.limit("3/minute")
-async def verify_email(request: Request, body: VerifyEmailRequest, db: db_dependency):
+async def verify_email(request: Request, body: VerifyEmailRequest, db: db_dependency, tenant: tenant_dependency):
     """
     Verifies user's email with the provided code.
-    
+
     Checks:
     - User exists
     - Not already verified
@@ -77,7 +77,7 @@ async def verify_email(request: Request, body: VerifyEmailRequest, db: db_depend
 
 @router.post("/refresh", response_model=Token)
 @limiter.limit("10/minute")
-async def refresh_token(request: Request, body: RefreshTokenRequest, db: db_dependency):
+async def refresh_token(request: Request, body: RefreshTokenRequest, db: db_dependency, tenant: tenant_dependency):
     """
     Get new access token using refresh token.
     """
@@ -91,7 +91,7 @@ async def refresh_token(request: Request, body: RefreshTokenRequest, db: db_depe
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
-async def logout(request: Request, body: RevokeTokenRequest, db: db_dependency):
+async def logout(request: Request, body: RevokeTokenRequest, db: db_dependency, tenant: tenant_dependency):
     """
     Revoke refresh token (logout).
     """
@@ -104,7 +104,7 @@ async def logout(request: Request, body: RevokeTokenRequest, db: db_dependency):
 
 @router.post("/resend-verification", status_code=status.HTTP_200_OK)
 @limiter.limit("3/minute")
-async def resend_verification(request: Request, body: ResendVerificationRequest, db: db_dependency):
+async def resend_verification(request: Request, body: ResendVerificationRequest, db: db_dependency, tenant: tenant_dependency):
     """Resend verification email to an unverified account."""
     await AuthService.resend_verification(db, body.email)
     return {"message": "If your email is registered and unverified, a new verification code has been sent."}
@@ -112,7 +112,7 @@ async def resend_verification(request: Request, body: ResendVerificationRequest,
 
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
 @limiter.limit("3/minute")
-async def forgot_password_request(request: Request, body: ForgotPasswordRequest, db: db_dependency):
+async def forgot_password_request(request: Request, body: ForgotPasswordRequest, db: db_dependency, tenant: tenant_dependency):
     """Request password reset via email."""
     await AuthService.forgot_password(db, body.email)
     return {"message": "If that email exists, a reset link has been sent."}
@@ -120,8 +120,7 @@ async def forgot_password_request(request: Request, body: ForgotPasswordRequest,
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
 @limiter.limit("5/minute")
-async def reset_password(request: Request, body: ResetPasswordRequest, db: db_dependency):
+async def reset_password(request: Request, body: ResetPasswordRequest, db: db_dependency, tenant: tenant_dependency):
     """Reset password using a valid reset token (public endpoint)."""
     await AuthService.reset_password(db, body.token, body.new_password)
     return {"message": "Password updated successfully. Please login again."}
-

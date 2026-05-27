@@ -59,9 +59,10 @@ async def test_get_order_not_found(session, verified_user):
     assert exc.value.detail == "Order not found"
 
 
-async def test_get_order_wrong_owner(session, verified_user, product_factory):
+async def test_get_order_wrong_owner(session, verified_user, product_factory, test_tenant):
     """Raises 404 when the order exists but belongs to a different user."""
     other_user = User(
+        tenant_id=test_tenant.id,
         email="other@example.com",
         first_name="Other",
         last_name="User",
@@ -74,13 +75,13 @@ async def test_get_order_wrong_owner(session, verified_user, product_factory):
     await session.commit()
     await session.refresh(other_user)
 
-    addr = Address(user_id=other_user.id, street="1 St", city="Cairo", country="Egypt", postal_code="11511", is_default=True)
+    addr = Address(tenant_id=test_tenant.id, user_id=other_user.id, street="1 St", city="Cairo", country="Egypt", postal_code="11511", is_default=True)
     session.add(addr)
     await session.commit()
 
     product = await product_factory()
-    await CartService.add_to_cart(session, other_user.id, product.id, 1)
-    other_order = await CheckoutService.checkout(db=session, user_id=other_user.id, address_id=addr.id, payment_method=PaymentMethod.COD)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=other_user.id, product_id=product.id, quantity=1)
+    other_order = await CheckoutService.checkout(db=session, tenant_id=test_tenant.id, user_id=other_user.id, address_id=addr.id, payment_method=PaymentMethod.COD)
 
     with pytest.raises(HTTPException) as exc:
         await OrderService.get_order(session, verified_user.id, other_order.id)

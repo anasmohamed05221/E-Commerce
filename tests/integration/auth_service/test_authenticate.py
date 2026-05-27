@@ -5,7 +5,7 @@ from services.auth import AuthService
 from fastapi import HTTPException
 
 
-async def test_authenticate_user_success(session):
+async def test_authenticate_user_success(session, test_tenant):
     """Test user authentication with correct credentials."""
     user_data = CreateUserRequest(
         email="test@example.com",
@@ -15,7 +15,7 @@ async def test_authenticate_user_success(session):
         phone_number="+201111111111"
     )
     with patch("tasks.emails.send_email_task.delay"):
-        created_user = await AuthService.create_user(user_data, session)
+        created_user = await AuthService.create_user(user_data, session, tenant_id=test_tenant.id)
     created_user.is_verified = True
     await session.commit()
 
@@ -23,7 +23,7 @@ async def test_authenticate_user_success(session):
     assert authenticated_user == created_user
 
 
-async def test_login_unverified_user(session):
+async def test_login_unverified_user(session, test_tenant):
     """Test that unverified users cannot authenticate."""
     user_data = CreateUserRequest(
         email="unverified_test@example.com",
@@ -33,7 +33,7 @@ async def test_login_unverified_user(session):
         phone_number="+201111111111"
     )
     with patch("tasks.emails.send_email_task.delay"):
-        await AuthService.create_user(user_data, session)
+        await AuthService.create_user(user_data, session, tenant_id=test_tenant.id)
 
     with pytest.raises(HTTPException) as exc_info:
         await AuthService.authenticate_user("unverified_test@example.com", "SecurePass123!", session)
@@ -42,7 +42,7 @@ async def test_login_unverified_user(session):
     assert "email not verified" in exc_info.value.detail.lower()
 
 
-async def test_authenticate_user_wrong_password(session):
+async def test_authenticate_user_wrong_password(session, test_tenant):
     """Test authentication fails with wrong password."""
     user_data = CreateUserRequest(
         email="wrong@example.com",
@@ -52,7 +52,7 @@ async def test_authenticate_user_wrong_password(session):
         phone_number="+201111111111"
     )
     with patch("tasks.emails.send_email_task.delay"):
-        created_user = await AuthService.create_user(user_data, session)
+        created_user = await AuthService.create_user(user_data, session, tenant_id=test_tenant.id)
     created_user.is_verified = True
     await session.commit()
 
@@ -61,7 +61,7 @@ async def test_authenticate_user_wrong_password(session):
     assert exc_info.value.status_code == 401
 
 
-async def test_login_inactive_user(session):
+async def test_login_inactive_user(session, test_tenant):
     """Test that deactivated users cannot authenticate."""
     user_data = CreateUserRequest(
         email="inactive_test@example.com",
@@ -71,7 +71,7 @@ async def test_login_inactive_user(session):
         phone_number="+201111111111"
     )
     with patch("tasks.emails.send_email_task.delay"):
-        created_user = await AuthService.create_user(user_data, session)
+        created_user = await AuthService.create_user(user_data, session, tenant_id=test_tenant.id)
     created_user.is_verified = True
     created_user.is_active = False
     await session.commit()

@@ -5,10 +5,10 @@ from models.cart_items import CartItem
 from services.cart import CartService
 
 
-async def test_remove_from_cart_success(session, verified_user, product_factory):
+async def test_remove_from_cart_success(session, verified_user, product_factory, test_tenant):
     """Removing an item deletes it from the database."""
     product = await product_factory()
-    await CartService.add_to_cart(db=session, user_id=verified_user.id, product_id=product.id, quantity=1)
+    await CartService.add_to_cart(db=session, tenant_id=test_tenant.id, user_id=verified_user.id, product_id=product.id, quantity=1)
 
     await CartService.remove_from_cart(db=session, user_id=verified_user.id, product_id=product.id)
 

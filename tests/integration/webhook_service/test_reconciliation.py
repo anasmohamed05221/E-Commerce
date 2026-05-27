@@ -11,9 +11,10 @@ from models.enums import PaymentMethod, PaymentStatus, OrderStatus
 # Fixture
 
 @pytest.fixture
-async def stale_stripe_order(session, verified_user, test_address):
+async def stale_stripe_order(session, verified_user, test_address, test_tenant):
     """Stripe UNPAID order with created_at 1 hour ago so reconciliation picks it up."""
     order = Order(
+        tenant_id=test_tenant.id,
         user_id=verified_user.id,
         address_id=test_address.id,
         total_amount=500.00,

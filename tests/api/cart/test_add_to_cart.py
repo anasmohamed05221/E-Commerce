@@ -12,7 +12,7 @@ async def test_add_to_cart_success(client, user_token, session, product_factory)
     assert response.status_code == 201
     data = response.json()
     assert data["quantity"] == 3
-    assert data["product"]["name"] == "Laptop"
+    assert data["product"]["name"] == product.name
 
 
 @pytest.mark.asyncio

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, status, Request
-from utils.deps import db_dependency, active_user_dependency
+from utils.deps import db_dependency, active_user_dependency, tenant_dependency
 from schemas.users import UserOut, PasswordChangeToken, UpdateProfileRequest
 from schemas.auth import ChangePasswordRequest, DeactivateUserRequest
 from services.users import UserService
@@ -16,14 +16,14 @@ router = APIRouter(
 
 @router.get("/me", response_model=UserOut, status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute")
-async def get_user_info(request: Request, current_user: active_user_dependency, db: db_dependency):
+async def get_user_info(request: Request, current_user: active_user_dependency, tenant: tenant_dependency, db: db_dependency):
     """Get current user info (protected endpoint)."""
     return current_user
 
 
 @router.patch("/me", response_model=UserOut, status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
-async def update_profile(request: Request, db: db_dependency, current_user: active_user_dependency, body: UpdateProfileRequest):
+async def update_profile(request: Request, db: db_dependency, tenant: tenant_dependency, current_user: active_user_dependency, body: UpdateProfileRequest):
     """Partially update user profile (name, phone number)"""
     updated_user = await UserService.update_profile(db, current_user, body)
     logger.info("Profile updated successfully", extra={"user_id": current_user.id})
@@ -33,7 +33,7 @@ async def update_profile(request: Request, db: db_dependency, current_user: acti
 @router.put("/me/password", status_code=status.HTTP_200_OK)
 @limiter.limit("2/minute")
 async def change_password_request(request: Request, body: ChangePasswordRequest,
-                                   current_user: active_user_dependency, db: db_dependency):
+                                   tenant: tenant_dependency, current_user: active_user_dependency, db: db_dependency):
     """Request password change. Sends confirmation email."""
     await UserService.request_password_change(db, current_user, body.current_password, body.new_password)
     return {"message": "Confirmation email sent. Please check your inbox."}
@@ -41,14 +41,14 @@ async def change_password_request(request: Request, body: ChangePasswordRequest,
 
 @router.post("/confirm-password-change", status_code=status.HTTP_200_OK)
 async def confirm_password_change(token_body: PasswordChangeToken, db: db_dependency):
-    """Confirm password change (public endpoint)."""
+    """Confirm password change (public endpoint, accessed via email link)."""
     await UserService.confirm_password_change(db, token_body.token)
     return {"message": "Password updated successfully. Please login again."}
 
 
 @router.post("/deny-password-change", status_code=status.HTTP_200_OK)
 async def deny_password_change(token_body: PasswordChangeToken, db: db_dependency):
-    """Deny password change and logout all sessions (public endpoint)."""
+    """Deny password change and logout all sessions (public endpoint, accessed via email link)."""
     await UserService.deny_password_change(db, token_body.token)
     return {"message": "Password change cancelled. All sessions logged out."}
 
@@ -56,7 +56,7 @@ async def deny_password_change(token_body: PasswordChangeToken, db: db_dependenc
 @router.delete("/deactivate", status_code=status.HTTP_200_OK)
 @limiter.limit("3/minute")
 async def deactivate_user(request: Request, body: DeactivateUserRequest,
-                           current_user: active_user_dependency, db: db_dependency):
+                           tenant: tenant_dependency, current_user: active_user_dependency, db: db_dependency):
     """Deactivate user account and revoke all sessions (protected endpoint)."""
     await UserService.deactivate_self(db, current_user, body.password)
     logger.info("User deactivated", extra={"user_id": current_user.id})

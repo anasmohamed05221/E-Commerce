@@ -29,7 +29,6 @@ async def test_expired_token_fails_refresh(session, test_user):
     # Manually create DB entry with past expiry
     token_hash = hashlib.sha256(jti.encode()).hexdigest()
     db_token = RefreshToken(
-        tenant_id=test_user.tenant_id,
         user_id=test_user.id,
         token_hash=token_hash,
         expires_at=datetime.now(UTC) - timedelta(seconds=1)  # Already expired

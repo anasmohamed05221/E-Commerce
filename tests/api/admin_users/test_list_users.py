@@ -6,8 +6,9 @@ from utils.hashing import get_password_hash
 HASHED = get_password_hash("TestPassword123!")
 
 
-async def _make_user(session, email, role=UserRole.CUSTOMER, is_active=True):
+async def _make_user(session, tenant_id, email, role=UserRole.CUSTOMER, is_active=True):
     user = User(
+        tenant_id=tenant_id,
         email=email,
         first_name="Test",
         last_name="User",
@@ -70,9 +71,9 @@ async def test_list_users_role_filter(client, admin_token, session, verified_use
 
 
 @pytest.mark.asyncio
-async def test_list_users_is_active_filter(client, admin_token, session):
+async def test_list_users_is_active_filter(client, admin_token, session, test_tenant):
     """?is_active=false returns only inactive users."""
-    await _make_user(session, "inactive_list@example.com", is_active=False)
+    await _make_user(session, test_tenant.id, "inactive_list@example.com", is_active=False)
 
     response = await client.get(
         "/admin/users/?is_active=false",
@@ -85,10 +86,10 @@ async def test_list_users_is_active_filter(client, admin_token, session):
 
 
 @pytest.mark.asyncio
-async def test_list_users_pagination(client, admin_token, session):
+async def test_list_users_pagination(client, admin_token, session, test_tenant):
     """limit and offset control the page; total reflects the full count."""
     for i in range(3):
-        await _make_user(session, f"paginate{i}@example.com")
+        await _make_user(session, test_tenant.id, f"paginate{i}@example.com")
 
     response = await client.get(
         "/admin/users/?limit=2&offset=0",

@@ -1,11 +1,11 @@
 import pytest
 from models.categories import Category
 @pytest.mark.asyncio
-async def test_get_categories_success(client, session):
+async def test_get_categories_success(client, session, test_tenant):
     """Test getting a list of categories via the endpoint."""
     # 1. Setup data
-    c1 = Category(name="Electronics", description="Tech gear")
-    c2 = Category(name="Books", description="Reading material")
+    c1 = Category(tenant_id=test_tenant.id, name="Electronics", description="Tech gear")
+    c2 = Category(tenant_id=test_tenant.id, name="Books", description="Reading material")
     session.add_all([c1, c2])
     await session.commit()
     # 2. Action: Hit the endpoint

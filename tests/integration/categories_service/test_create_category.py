@@ -6,8 +6,8 @@ from core.redis_client import redis_client
 
 
 @pytest.mark.asyncio
-async def test_create_category_success(session):
-    category = await CategoryService.create_category(session, name="Books", description="All books")
+async def test_create_category_success(session, test_tenant):
+    category = await CategoryService.create_category(session, tenant_id=test_tenant.id, name="Books", description="All books")
 
     assert category.id is not None
     assert category.name == "Books"
@@ -16,18 +16,18 @@ async def test_create_category_success(session):
 
 
 @pytest.mark.asyncio
-async def test_create_category_without_description(session):
-    category = await CategoryService.create_category(session, name="Books", description=None)
+async def test_create_category_without_description(session, test_tenant):
+    category = await CategoryService.create_category(session, tenant_id=test_tenant.id, name="Books", description=None)
 
     assert category.id is not None
     assert category.description is None
 
 
 @pytest.mark.asyncio
-async def test_create_category_duplicate_name_raises_409(session):
-    await CategoryService.create_category(session, name="Books", description=None)
+async def test_create_category_duplicate_name_raises_409(session, test_tenant):
+    await CategoryService.create_category(session, tenant_id=test_tenant.id, name="Books", description=None)
 
     with pytest.raises(HTTPException) as exc:
-        await CategoryService.create_category(session, name="Books", description=None)
+        await CategoryService.create_category(session, tenant_id=test_tenant.id, name="Books", description=None)
 
     assert exc.value.status_code == 409

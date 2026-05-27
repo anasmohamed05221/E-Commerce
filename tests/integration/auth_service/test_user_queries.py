@@ -6,7 +6,7 @@ from schemas.auth import CreateUserRequest
 from services.auth import AuthService
 
 
-async def test_get_user_by_email(session):
+async def test_get_user_by_email(session, test_tenant):
     """Test retrieving a user by email."""
     user_data = CreateUserRequest(
         email="find@example.com",
@@ -16,7 +16,7 @@ async def test_get_user_by_email(session):
         phone_number="+201234567890"
     )
     with patch("tasks.emails.send_email_task.delay"):
-        await AuthService.create_user(user_data, session)
+        await AuthService.create_user(user_data, session, tenant_id=test_tenant.id)
 
     found_user = await session.scalar(select(User).where(User.email == "find@example.com"))
 
@@ -26,7 +26,7 @@ async def test_get_user_by_email(session):
     assert found_user.last_name == "Me"
 
 
-async def test_deactivate_user(session):
+async def test_deactivate_user(session, test_tenant):
     """Test deactivating a user account."""
     user_data = CreateUserRequest(
         email="deactivate@example.com",
@@ -36,7 +36,7 @@ async def test_deactivate_user(session):
         phone_number="+201111111111"
     )
     with patch("tasks.emails.send_email_task.delay"):
-        created_user = await AuthService.create_user(user_data, session)
+        created_user = await AuthService.create_user(user_data, session, tenant_id=test_tenant.id)
 
     created_user.is_active = False
     await session.commit()

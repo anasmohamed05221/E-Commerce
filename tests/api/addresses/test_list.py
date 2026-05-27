@@ -26,9 +26,10 @@ async def test_list_addresses_empty(client, user_token):
 
 
 @pytest.mark.asyncio
-async def test_list_addresses_only_own(client, user_token, test_address, session):
+async def test_list_addresses_only_own(client, user_token, test_address, session, test_tenant):
     """Addresses belonging to other users are not included in the response."""
     other_user = User(
+        tenant_id=test_tenant.id,
         email="other@example.com",
         first_name="Other",
         last_name="User",
@@ -42,6 +43,7 @@ async def test_list_addresses_only_own(client, user_token, test_address, session
     await session.refresh(other_user)
 
     other_address = Address(
+        tenant_id=test_tenant.id,
         user_id=other_user.id,
         street="1 Other St",
         city="Alexandria",

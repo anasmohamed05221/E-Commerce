@@ -62,10 +62,11 @@ async def test_login_nonexistent_user(client):
     assert response.status_code == 401
 
 
-async def test_login_unverified_email(client, session):
+async def test_login_unverified_email(client, session, test_tenant):
     """Test login with unverified email."""
-    
+
     unverified_user = User(
+        tenant_id=test_tenant.id,
         email="unverified@example.com",
         first_name="Unverified",
         last_name="User",
@@ -86,9 +87,10 @@ async def test_login_unverified_email(client, session):
     assert "not verified" in response.json()["detail"].lower()
 
 
-async def test_login_inactive_user(client, session):
+async def test_login_inactive_user(client, session, test_tenant):
     """Test login for an inactive user"""
     inactive_user = User(
+        tenant_id=test_tenant.id,
         email="inactive@example.com",
         first_name="Inactive",
         last_name="User",

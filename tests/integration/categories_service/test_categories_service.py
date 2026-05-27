@@ -3,12 +3,12 @@ from models.categories import Category
 from services.categories import CategoryService
 
 @pytest.mark.asyncio
-async def test_get_categories_sorting(session):
+async def test_get_categories_sorting(session, test_tenant):
     """Test that CategoryService.get_categories sorts alphabetically."""
     # 1. Setup: Create testing data strictly out of alphabetical order
-    c1 = Category(name="Mugs", description="Mugs here")
-    c2 = Category(name="Apparel", description="Shirts and stuff")
-    c3 = Category(name="Zebra", description="Animal stuff")
+    c1 = Category(tenant_id=test_tenant.id, name="Mugs", description="Mugs here")
+    c2 = Category(tenant_id=test_tenant.id, name="Apparel", description="Shirts and stuff")
+    c3 = Category(tenant_id=test_tenant.id, name="Zebra", description="Animal stuff")
     session.add_all([c1, c2, c3])
     await session.commit()
     # 2. Action: Call the service directly

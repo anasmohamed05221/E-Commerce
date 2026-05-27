@@ -8,6 +8,7 @@ import json
 from fastapi.encoders import jsonable_encoder
 from core.redis_client import redis_client
 from core.logging_config import get_logger
+from uuid import UUID
 
 logger = get_logger(__name__)
 
@@ -49,7 +50,7 @@ class CategoryService:
         return categories
 
     @staticmethod
-    async def create_category(db: AsyncSession, name: str, description: Optional[str]) -> Category:
+    async def create_category(db: AsyncSession, tenant_id: UUID, name: str, description: Optional[str]) -> Category:
         """Create a new category. Raises 409 if name already exists."""
         existing = await db.scalar(select(Category).where(Category.name == name))
         if existing:
@@ -58,7 +59,7 @@ class CategoryService:
                 detail=f"Category '{name}' already exists."
             )
 
-        category = Category(name=name, description=description)
+        category = Category(tenant_id=tenant_id, name=name, description=description)
         db.add(category)
 
         try:

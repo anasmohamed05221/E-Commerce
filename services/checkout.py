@@ -16,6 +16,7 @@ from utils.logger import get_logger
 from utils.email_templates import order_confirmation_email
 import stripe
 from core.config import settings
+from uuid import UUID
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -131,7 +132,7 @@ class CheckoutService:
 
 
     @staticmethod
-    async def checkout(db: AsyncSession, user_id: int, address_id: int, payment_method: PaymentMethod) -> Order:
+    async def checkout(db: AsyncSession, tenant_id: UUID, user_id: int, address_id: int, payment_method: PaymentMethod) -> Order:
         """Execute the full checkout flow as a single atomic transaction.
 
         Validates cart, creates order with items, decrements stock,
@@ -171,6 +172,7 @@ class CheckoutService:
         # Create order
         total_amount = CartService.calculate_cart_total_price(cart_items)
         order = Order(
+            tenant_id=tenant_id,
             user_id=user_id, 
             total_amount=total_amount, 
             status=OrderStatus.PENDING, 

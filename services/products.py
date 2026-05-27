@@ -9,6 +9,7 @@ from models.order_items import OrderItem
 from schemas.products import ProductCreate, ProductUpdate
 from typing import Optional
 from utils.logger import get_logger
+from uuid import UUID
 
 logger = get_logger(__name__)
 
@@ -43,7 +44,7 @@ class ProductService:
         return product_model
 
     @staticmethod
-    async def create_product(db: AsyncSession, request: ProductCreate):
+    async def create_product(db: AsyncSession, request: ProductCreate, tenant_id: UUID):
         category = await db.scalar(select(Category).where(Category.id==request.category_id))
         if category is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid category_id")
@@ -52,13 +53,15 @@ class ProductService:
         if existing is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A product with this name already exists")
         
-        product = Product(category_id=request.category_id, 
-                        name=request.name, 
-                        description=request.description, 
-                        price=request.price, 
-                        image_url=request.image_url,
-                        stock=request.stock
-                        )
+        product = Product(
+                    tenant_id=tenant_id,
+                    category_id=request.category_id, 
+                    name=request.name, 
+                    description=request.description, 
+                    price=request.price, 
+                    image_url=request.image_url,
+                    stock=request.stock
+                   )
         db.add(product)
 
         try:

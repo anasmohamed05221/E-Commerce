@@ -6,6 +6,7 @@ from models.cart_items import CartItem
 from models.products import Product
 from decimal import Decimal
 from utils.logger import get_logger
+from uuid import UUID
 
 logger = get_logger(__name__)
 
@@ -24,7 +25,7 @@ class CartService:
         return sum((item.product.price * item.quantity for item in cart_items), start=Decimal("0"))
     
     @staticmethod
-    async def add_to_cart(db: AsyncSession, user_id: int, product_id: int, quantity: int) -> CartItem:
+    async def add_to_cart(db: AsyncSession, tenant_id: UUID, user_id: int, product_id: int, quantity: int) -> CartItem:
         """Add a product to the user's cart, or increment quantity if already exists."""
         product = await db.scalar(select(Product).where(Product.id==product_id))
         if product is None:
@@ -42,7 +43,7 @@ class CartService:
             if quantity > product.stock:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"message": "Not enough stock available",
                                                                                    "available_stock": product.stock})
-            cart_item = CartItem(user_id=user_id, product_id=product_id, quantity=quantity)                                                                      
+            cart_item = CartItem(tenant_id=tenant_id, user_id=user_id, product_id=product_id, quantity=quantity)                                                                      
             db.add(cart_item)
 
         try:
@@ -76,10 +77,10 @@ class CartService:
     
 
     @staticmethod
-    async def clear_cart(db: AsyncSession, user_id: int):
+    async def clear_cart(db: AsyncSession, tenant_id: UUID, user_id: int):
         """Empty User's cart."""
         try:
-            await db.execute(sa_delete(CartItem).where(CartItem.user_id == user_id))
+            await db.execute(sa_delete(CartItem).where(CartItem.tenant_id == tenant_id, CartItem.user_id == user_id))
             await db.commit()
         except Exception:
             logger.error("Clear cart commit failed", extra={"user_id": user_id}, exc_info=True)

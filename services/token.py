@@ -3,6 +3,7 @@ from utils.hashing import hash_token
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 from jose import jwt, JWTError
 from models.refresh_tokens import RefreshToken
@@ -101,11 +102,8 @@ class TokenService:
         # Create refresh token (7 days)
         refresh_token, jti, expires_at = TokenService.create_refresh_token(tenant_id, email, user_id, role)
         
-        # Hash the JTI and store in database
         token_hash = hash_token(jti)
-        
         db_refresh_token = RefreshToken(
-            tenant_id=tenant_id,
             user_id=user_id,
             token_hash=token_hash,
             expires_at=expires_at
@@ -113,9 +111,24 @@ class TokenService:
         db.add(db_refresh_token)
         try:
             await db.commit()
-        except Exception:
+        except IntegrityError:
             await db.rollback()
-            raise
+            for attempt in range(3):
+                refresh_token, jti, expires_at = TokenService.create_refresh_token(tenant_id, email, user_id, role)
+                token_hash = hash_token(jti)
+                db_refresh_token = RefreshToken(
+                    user_id=user_id,
+                    token_hash=token_hash,
+                    expires_at=expires_at
+                )
+                db.add(db_refresh_token)
+                try:
+                    await db.commit()
+                    break
+                except IntegrityError:
+                    await db.rollback()
+                    if attempt == 2:
+                        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to generate unique token, please try again")
 
         return {
             "access_token": access_token,

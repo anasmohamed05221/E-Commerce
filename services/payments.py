@@ -71,7 +71,7 @@ class WebhookService:
                 order.payment_status = PaymentStatus.REFUNDED
                 order.status = OrderStatus.CANCELLED
                 if event_id is not None:
-                    new_event = ProcessedWebhookEvent(event_id=event_id)
+                    new_event = ProcessedWebhookEvent(tenant_id=order.tenant_id, event_id=event_id)
                     db.add(new_event)
                 return
 
@@ -81,7 +81,7 @@ class WebhookService:
             db.add(order_item)
             db.add(inventory_change)
 
-        await CartService.clear_cart(db, order.user_id)
+        await CartService.clear_cart(db, order.tenant_id, order.user_id)
         order.payment_status = PaymentStatus.PAID
         order.status = OrderStatus.CONFIRMED
         logger.info("Order confirmed after payment", extra={"order_id": order.id})
@@ -99,7 +99,7 @@ class WebhookService:
             order_confirmation_email(order.id, str(order.total_amount), items)
         )
         if event_id is not None:
-            new_event = ProcessedWebhookEvent(event_id=event_id)
+            new_event = ProcessedWebhookEvent(tenant_id=order.tenant_id, event_id=event_id)
             db.add(new_event)
 
     @staticmethod
@@ -115,7 +115,7 @@ class WebhookService:
 
         order.payment_status = PaymentStatus.FAILED
 
-        new_event = ProcessedWebhookEvent(event_id=event.id)
+        new_event = ProcessedWebhookEvent(tenant_id=order.tenant_id, event_id=event.id)
         db.add(new_event)
 
     @staticmethod
@@ -131,5 +131,5 @@ class WebhookService:
 
         order.payment_status = PaymentStatus.REFUNDED
 
-        new_event = ProcessedWebhookEvent(event_id=event.id)
+        new_event = ProcessedWebhookEvent(tenant_id=order.tenant_id, event_id=event.id)
         db.add(new_event)

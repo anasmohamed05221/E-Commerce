@@ -15,13 +15,14 @@ from core.config import settings
 from services.token import TokenService
 import secrets
 from tasks.emails import send_email_task
+from uuid import UUID
 
 logger = get_logger(__name__)
 
 class AuthService:
 
     @staticmethod
-    async def create_user(request: CreateUserRequest, db: AsyncSession):
+    async def create_user(request: CreateUserRequest, db: AsyncSession, tenant_id: UUID):
         """
         Creates a new user and sends verification email.
 
@@ -47,6 +48,7 @@ class AuthService:
         expiry = get_code_expiry_time()
 
         model = User(
+            tenant_id=tenant_id,
             email=request.email.lower().strip(),
             first_name=request.first_name,
             last_name=request.last_name,

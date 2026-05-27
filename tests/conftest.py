@@ -89,8 +89,10 @@ async def connection(db_engine):
     async with db_engine.connect() as conn:
         txn = await conn.begin()
         await conn.begin_nested()
-        yield conn
-        await txn.rollback()
+        try:
+            yield conn
+        finally:
+            await txn.rollback()
 
 
 @pytest.fixture
@@ -105,8 +107,10 @@ async def session(connection):
         if not connection.in_nested_transaction():
             connection.sync_connection.begin_nested()
 
-    yield async_session
-    await async_session.close()
+    try:
+        yield async_session
+    finally:
+        await async_session.close()
 
 
 @pytest.fixture

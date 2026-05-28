@@ -14,5 +14,5 @@ router = APIRouter(
 @limiter.limit("60/minute")
 async def get_categories(db: db_dependency, request: Request, tenant: tenant_dependency):
     """List all product categories."""
-    categories = await CategoryService.get_categories(db)
+    categories = await CategoryService.get_categories(db, tenant.id)
     return categories

@@ -16,9 +16,9 @@ CACHE_KEY = "categories:all"
 
 class CategoryService:
     @staticmethod
-    async def get_categories(db: AsyncSession) -> list[Category]:
+    async def get_categories(db: AsyncSession, tenant_id: UUID) -> list[Category]:
         """Fetch all categories, using Redis cache when available."""
-        cache_key = "categories:all"
+        cache_key = f"tenant:{tenant_id}:{CACHE_KEY}"
 
         # Ask Redis if it has the data
         cached_data = await redis_client.redis.get(cache_key)
@@ -70,12 +70,12 @@ class CategoryService:
             await db.rollback()
             raise
 
-        await redis_client.redis.delete(CACHE_KEY)
+        await redis_client.redis.delete(f"tenant:{tenant_id}:{CACHE_KEY}")
 
         return category
 
     @staticmethod
-    async def update_category(db: AsyncSession, category_id: int, name: Optional[str], description: Optional[str]) -> Category:
+    async def update_category(db: AsyncSession, tenant_id: UUID, category_id: int, name: Optional[str], description: Optional[str]) -> Category:
         """Partial update a category. Raises 400 if no fields provided, 404 if not found, 409 if new name is taken."""
         if name is None and description is None:
             raise HTTPException(
@@ -112,12 +112,12 @@ class CategoryService:
             await db.rollback()
             raise
 
-        await redis_client.redis.delete(CACHE_KEY)
+        await redis_client.redis.delete(f"tenant:{tenant_id}:{CACHE_KEY}")
 
         return category
 
     @staticmethod
-    async def delete_category(db: AsyncSession, category_id: int) -> None:
+    async def delete_category(db: AsyncSession, tenant_id: UUID, category_id: int) -> None:
         """Delete a category. Raises 404 if not found, 409 if any products are linked."""
         category = await db.scalar(select(Category).where(Category.id == category_id))
         if not category:
@@ -142,4 +142,4 @@ class CategoryService:
             await db.rollback()
             raise
 
-        await redis_client.redis.delete(CACHE_KEY)
+        await redis_client.redis.delete(f"tenant:{tenant_id}:{CACHE_KEY}")

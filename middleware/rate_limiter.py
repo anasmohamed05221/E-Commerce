@@ -12,8 +12,9 @@ def get_user_id(request: Request):
             # Decode JWT
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
             user_id = payload.get("id")
-            if user_id:
-                return str(user_id)
+            tenant_id = payload.get("tenant_id")
+            if user_id and tenant_id:
+                return f"{str(tenant_id)}:{str(user_id)}"
         except JWTError:
             pass
 

@@ -12,7 +12,7 @@ async def test_create_category_success(session, test_tenant):
     assert category.id is not None
     assert category.name == "Books"
     assert category.description == "All books"
-    redis_client.redis.delete.assert_called_once_with(CACHE_KEY)
+    redis_client.redis.delete.assert_called_once_with(f"tenant:{test_tenant.id}:{CACHE_KEY}")
 
 
 @pytest.mark.asyncio

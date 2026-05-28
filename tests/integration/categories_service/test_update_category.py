@@ -6,32 +6,32 @@ from core.redis_client import redis_client
 
 
 @pytest.mark.asyncio
-async def test_update_category_name_success(session, test_category):
+async def test_update_category_name_success(session, test_tenant, test_category):
     updated = await CategoryService.update_category(
-        session, test_category.id, name="Gadgets", description=None
+        session, test_tenant.id, test_category.id, name="Gadgets", description=None
     )
 
     assert updated.name == "Gadgets"
     assert updated.description == test_category.description  # unchanged
-    redis_client.redis.delete.assert_called_once_with(CACHE_KEY)
+    redis_client.redis.delete.assert_called_once_with(f"tenant:{test_tenant.id}:{CACHE_KEY}")
 
 
 @pytest.mark.asyncio
-async def test_update_category_description_success(session, test_category):
+async def test_update_category_description_success(session, test_tenant, test_category):
     updated = await CategoryService.update_category(
-        session, test_category.id, name=None, description="Updated description"
+        session, test_tenant.id, test_category.id, name=None, description="Updated description"
     )
 
     assert updated.description == "Updated description"
     assert updated.name == test_category.name  # unchanged
-    redis_client.redis.delete.assert_called_once_with(CACHE_KEY)
+    redis_client.redis.delete.assert_called_once_with(f"tenant:{test_tenant.id}:{CACHE_KEY}")
 
 
 @pytest.mark.asyncio
-async def test_update_category_same_name_no_conflict(session, test_category):
+async def test_update_category_same_name_no_conflict(session, test_tenant, test_category):
     # Patching a category with its own name must not raise 409
     updated = await CategoryService.update_category(
-        session, test_category.id, name=test_category.name, description=None
+        session, test_tenant.id, test_category.id, name=test_category.name, description=None
     )
 
     assert updated.name == test_category.name
@@ -45,25 +45,25 @@ async def test_update_category_name_taken_by_other_raises_409(session, test_cate
 
     with pytest.raises(HTTPException) as exc:
         await CategoryService.update_category(
-            session, test_category.id, name="Clothing", description=None
+            session, test_tenant.id, test_category.id, name="Clothing", description=None
         )
 
     assert exc.value.status_code == 409
 
 
 @pytest.mark.asyncio
-async def test_update_category_not_found_raises_404(session):
+async def test_update_category_not_found_raises_404(session, test_tenant):
     with pytest.raises(HTTPException) as exc:
-        await CategoryService.update_category(session, 99999, name="X", description=None)
+        await CategoryService.update_category(session, test_tenant.id, 99999, name="X", description=None)
 
     assert exc.value.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_update_category_no_fields_raises_400(session, test_category):
+async def test_update_category_no_fields_raises_400(session, test_tenant, test_category):
     with pytest.raises(HTTPException) as exc:
         await CategoryService.update_category(
-            session, test_category.id, name=None, description=None
+            session, test_tenant.id, test_category.id, name=None, description=None
         )
 
     assert exc.value.status_code == 400

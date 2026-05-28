@@ -12,7 +12,7 @@ async def test_get_categories_sorting(session, test_tenant):
     session.add_all([c1, c2, c3])
     await session.commit()
     # 2. Action: Call the service directly
-    categories = await CategoryService.get_categories(db=session)
+    categories = await CategoryService.get_categories(db=session, tenant_id=test_tenant.id)
     # 3. Assertions
     assert len(categories) == 3
     # A comes before M, M comes before Z
@@ -21,7 +21,7 @@ async def test_get_categories_sorting(session, test_tenant):
     assert categories[2].name == "Zebra"
 
 @pytest.mark.asyncio
-async def test_get_categories_empty(session):
+async def test_get_categories_empty(session, test_tenant):
     """Test that CategoryService.get_categories returns an empty list when DB is empty."""
-    categories = await CategoryService.get_categories(db=session)
+    categories = await CategoryService.get_categories(db=session, tenant_id=test_tenant.id)
     assert categories == []

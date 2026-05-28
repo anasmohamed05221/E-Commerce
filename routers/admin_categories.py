@@ -27,7 +27,7 @@ async def create_category(request: Request, db: db_dependency, tenant: tenant_de
 @limiter.limit("30/minute")
 async def update_category(request: Request, db: db_dependency, tenant: tenant_dependency, admin: admin_dependency, body: CategoryUpdate, category_id: int):
     """Partially update a category. Admin only."""
-    category = await CategoryService.update_category(db, category_id, body.name, body.description)
+    category = await CategoryService.update_category(db, tenant.id, category_id, body.name, body.description)
     logger.info("Category updated", extra={"admin_id": admin.id, "category_id": category.id})
     return category
 
@@ -36,5 +36,5 @@ async def update_category(request: Request, db: db_dependency, tenant: tenant_de
 @limiter.limit("30/minute")
 async def delete_category(request: Request, db: db_dependency, tenant: tenant_dependency, admin: admin_dependency, category_id: int):
     """Delete a category. Admin only. Fails if any products are linked."""
-    await CategoryService.delete_category(db, category_id)
+    await CategoryService.delete_category(db, tenant.id, category_id)
     logger.info("Category deleted", extra={"admin_id": admin.id, "category_id": category_id})

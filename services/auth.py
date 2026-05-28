@@ -69,7 +69,7 @@ class AuthService:
             await db.rollback()
             raise
 
-        subject = "Verify Your Email - E-commerce App"
+        subject = "Verify Your Email - Venix"
         send_email_task.delay(model.email, subject, verification_email(code))
 
         await db.refresh(model)

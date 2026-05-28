@@ -30,3 +30,4 @@ class TenantOut(BaseModel):
 
 class TenantRegisterOut(TenantOut):
     api_key: str
+    message: str

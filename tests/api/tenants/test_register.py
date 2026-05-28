@@ -1,6 +1,8 @@
 import hashlib
 from sqlalchemy import select, func
 from models.tenants import Tenant
+from models.users import User
+from models.enums import UserRole
 
 VALID_PAYLOAD = {
     "name": "Acme Store",
@@ -48,6 +50,21 @@ async def test_register_success(client, session):
     # Response: no sensitive fields leaked
     assert "owner_password_hash" not in data
     assert "api_key_hash" not in data
+
+    # DB: admin user auto-provisioned and scoped to the new tenant
+    session.info["tenant_id"] = tenant.id
+    admin = await session.scalar(
+        select(User).where(User.tenant_id == tenant.id, User.email == VALID_PAYLOAD["email"])
+    )
+    assert admin is not None
+    assert admin.role == UserRole.ADMIN
+    assert admin.is_active is True
+    assert admin.is_verified is True
+    assert admin.hashed_password == tenant.owner_password_hash
+
+    # Response: message field present and non-empty
+    assert "message" in data
+    assert data["message"]
 
 
 async def test_register_default_plan_is_free(client, session):

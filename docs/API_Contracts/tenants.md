@@ -35,7 +35,10 @@ Request body:
   "name": "Acme Store",
   "slug": "acme-store",
   "plan": "free",
-  "api_key": "vnx_xKp...47chars"
+  "is_active": true,
+  "created_at": "<iso8601>",
+  "api_key": "vnx_xKp...47chars",
+  "message": "Tenant created successfully. The owner account was automatically registered as the tenant administrator and can log in to the store using the same credentials."
 }
 
 ---

@@ -4,7 +4,8 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 from utils.hashing import hash_token, get_password_hash
 from models.tenants import Tenant
-from models.enums import PlanTier
+from models.users import User
+from models.enums import PlanTier, UserRole
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -30,9 +31,21 @@ class TenantService:
             api_key_hash=api_key_hash,
             is_active=True,
         )
-
-        db.add(tenant)
+        
         try:
+            db.add(tenant)
+            await db.flush()
+
+            user = User(
+                tenant_id=tenant.id,
+                email=email,
+                first_name="Admin",
+                last_name=name,
+                hashed_password=password_hash,
+                role=UserRole.ADMIN,
+                is_verified=True,
+            )
+            db.add(user)
             await db.commit()
         except IntegrityError:
             await db.rollback()

@@ -26,5 +26,6 @@ async def register_tenant(db: db_dependency, request: Request, body: TenantRegis
                 plan=tenant_obj.plan,
                 is_active=tenant_obj.is_active,
                 created_at=tenant_obj.created_at,
-                api_key=api_key_plaintext
+                api_key=api_key_plaintext,
+                message="Tenant created successfully. The owner account was automatically registered as the tenant administrator and can log in to the store using the same credentials."
             )

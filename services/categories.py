@@ -8,6 +8,7 @@ import json
 from fastapi.encoders import jsonable_encoder
 from core.redis_client import redis_client
 from core.logging_config import get_logger
+from redis.exceptions import RedisError
 from uuid import UUID
 
 logger = get_logger(__name__)
@@ -20,9 +21,12 @@ class CategoryService:
         """Fetch all categories, using Redis cache when available."""
         cache_key = f"tenant:{tenant_id}:{CACHE_KEY}"
 
-        # Ask Redis if it has the data
-        cached_data = await redis_client.redis.get(cache_key)
-        
+        try:
+            cached_data = await redis_client.redis.get(cache_key)
+        except RedisError:
+            logger.warning("Category cache read failed, falling back to DB", extra={"cache_key": cache_key})
+            cached_data = None
+
         if cached_data:
             logger.info(
                 "Cache HIT: Returning categories from Redis", 
@@ -41,12 +45,10 @@ class CategoryService:
         # jsonable_encoder cleanly removes SQLAlchemy metadata and converts dates to strings
         json_friendly_data = jsonable_encoder(categories)
         
-        # 4. Save to Redis (ex=3600 -> expire after 1 hour)
-        await redis_client.redis.set(
-            cache_key,
-            json.dumps(json_friendly_data),
-            ex=3600
-        )
+        try:
+            await redis_client.redis.set(cache_key, json.dumps(json_friendly_data), ex=3600)
+        except RedisError:
+            logger.warning("Category cache write failed", extra={"cache_key": cache_key})
         return categories
 
     @staticmethod
@@ -70,7 +72,10 @@ class CategoryService:
             await db.rollback()
             raise
 
-        await redis_client.redis.delete(f"tenant:{tenant_id}:{CACHE_KEY}")
+        try:
+            await redis_client.redis.delete(f"tenant:{tenant_id}:{CACHE_KEY}")
+        except RedisError:
+            logger.warning("Category cache invalidation failed", extra={"tenant_id": str(tenant_id)})
 
         return category
 
@@ -112,7 +117,10 @@ class CategoryService:
             await db.rollback()
             raise
 
-        await redis_client.redis.delete(f"tenant:{tenant_id}:{CACHE_KEY}")
+        try:
+            await redis_client.redis.delete(f"tenant:{tenant_id}:{CACHE_KEY}")
+        except RedisError:
+            logger.warning("Category cache invalidation failed", extra={"tenant_id": str(tenant_id)})
 
         return category
 
@@ -142,4 +150,7 @@ class CategoryService:
             await db.rollback()
             raise
 
-        await redis_client.redis.delete(f"tenant:{tenant_id}:{CACHE_KEY}")
+        try:
+            await redis_client.redis.delete(f"tenant:{tenant_id}:{CACHE_KEY}")
+        except RedisError:
+            logger.warning("Category cache invalidation failed", extra={"tenant_id": str(tenant_id)})

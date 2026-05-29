@@ -1,9 +1,12 @@
 import pytest
 import uuid
+import hashlib
 from unittest.mock import AsyncMock, MagicMock
 from models.tenants import Tenant
 from httpx import AsyncClient, ASGITransport
 from main import app
+
+VALID_API_KEY = "vnx_testkey123"
 
 
 @pytest.fixture
@@ -26,19 +29,27 @@ def mock_db():
     return mock_session
 
 
-@pytest.fixture
-def valid_tenant():
-    """Mock active tenant."""
+def _make_tenant_mock(is_active: bool) -> MagicMock:
+    """Build a MagicMock Tenant with all fields required by serialize_tenant."""
     tenant = MagicMock(spec=Tenant)
     tenant.id = uuid.uuid4()
-    tenant.is_active = True
+    tenant.is_active = is_active
+    tenant.name = "Test Store"
+    tenant.slug = "test-store"
+    tenant.plan = MagicMock()
+    tenant.plan.value = "free"
+    tenant.api_key_hash = hashlib.sha256(VALID_API_KEY.encode()).hexdigest()
+    tenant.owner_email = "owner@test.com"
     return tenant
+
+
+@pytest.fixture
+def valid_tenant():
+    """Mock active tenant with all fields required for serialization."""
+    return _make_tenant_mock(is_active=True)
 
 
 @pytest.fixture
 def inactive_tenant():
-    """Mock inactive tenant."""
-    tenant = MagicMock(spec=Tenant)
-    tenant.id = uuid.uuid4()
-    tenant.is_active = False
-    return tenant
+    """Mock inactive tenant with all fields required for serialization."""
+    return _make_tenant_mock(is_active=False)

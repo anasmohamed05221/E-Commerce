@@ -9,6 +9,7 @@ from core.config import settings
 from core.redis_client import redis_client
 from utils.logger import get_logger
 from utils.tenant_cache import serialize_tenant, deserialize_tenant
+from redis.exceptions import RedisError
 import hashlib
 
 logger = get_logger(__name__)
@@ -31,7 +32,12 @@ class TenantResolverMiddleware(BaseHTTPMiddleware):
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
         cache_key = f"tenant:apikey:{key_hash}"
 
-        cached_data = await redis_client.redis.get(cache_key)
+        try:
+            cached_data = await redis_client.redis.get(cache_key)
+        except RedisError:
+            logger.warning("Tenant resolver: Redis unavailable, cache read skipped", extra={"cache_key": cache_key})
+            cached_data = None
+
         if cached_data:
             logger.info("Cache HIT: Returning tenant from Redis", extra={"cache_key": cache_key, "source": "redis"})
             return deserialize_tenant(cached_data)
@@ -41,10 +47,16 @@ class TenantResolverMiddleware(BaseHTTPMiddleware):
             tenant = await db.scalar(select(Tenant).where(Tenant.api_key_hash == key_hash))
 
         if tenant:
-            await redis_client.redis.set(cache_key, serialize_tenant(tenant), ex=300)
+            try:
+                await redis_client.redis.set(cache_key, serialize_tenant(tenant), ex=300)
+            except RedisError:
+                logger.warning("Tenant resolver: Redis unavailable, cache write skipped", extra={"cache_key": cache_key})
         else:
-            await redis_client.redis.incr(f"tenant:resolver:fail:{ip}")
-            await redis_client.redis.expire(f"tenant:resolver:fail:{ip}", 60)
+            try:
+                await redis_client.redis.incr(f"tenant:resolver:fail:{ip}")
+                await redis_client.redis.expire(f"tenant:resolver:fail:{ip}", 60)
+            except RedisError:
+                logger.warning("Tenant resolver: Redis unavailable, fail counter not incremented", extra={"ip": ip})
             logger.warning("Tenant resolver: invalid API key", extra={"ip": ip, "path": path})
 
         return tenant
@@ -59,7 +71,12 @@ class TenantResolverMiddleware(BaseHTTPMiddleware):
                 return None
 
             cache_key = f"tenant:id:{tenant_id}"
-            cached_data = await redis_client.redis.get(cache_key)
+            try:
+                cached_data = await redis_client.redis.get(cache_key)
+            except RedisError:
+                logger.warning("Tenant resolver: Redis unavailable, cache read skipped", extra={"cache_key": cache_key})
+                cached_data = None
+
             if cached_data:
                 logger.info("Cache HIT: Returning tenant from Redis", extra={"cache_key": cache_key, "source": "redis"})
                 return deserialize_tenant(cached_data)
@@ -69,7 +86,10 @@ class TenantResolverMiddleware(BaseHTTPMiddleware):
                 tenant = await db.scalar(select(Tenant).where(Tenant.id == tenant_id))
 
             if tenant:
-                await redis_client.redis.set(cache_key, serialize_tenant(tenant), ex=300)
+                try:
+                    await redis_client.redis.set(cache_key, serialize_tenant(tenant), ex=300)
+                except RedisError:
+                    logger.warning("Tenant resolver: Redis unavailable, cache write skipped", extra={"cache_key": cache_key})
             else:
                 logger.warning("Tenant resolver: JWT tenant_id has no matching DB row", extra={"ip": ip, "path": path, "tenant_id": tenant_id})
 
@@ -85,7 +105,11 @@ class TenantResolverMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         ip = request.client.host
-        fail_count = await redis_client.redis.get(f"tenant:resolver:fail:{ip}")
+        try:
+            fail_count = await redis_client.redis.get(f"tenant:resolver:fail:{ip}")
+        except RedisError:
+            logger.warning("Tenant resolver: Redis unavailable, IP fail check skipped", extra={"ip": ip, "path": path})
+            fail_count = None
         if fail_count and int(fail_count) >= 10:
             logger.warning("Tenant resolver: IP rate limit exceeded", extra={"ip": ip, "path": path})
             return JSONResponse(status_code=429, content={"detail": "Too many failed attempts"})

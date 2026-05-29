@@ -72,6 +72,12 @@ async def test_conflict_guard_returns_403(client, mock_db, valid_tenant):
     other_tenant = MagicMock(spec=Tenant)
     other_tenant.id = uuid.uuid4()
     other_tenant.is_active = True
+    other_tenant.name = "Other Store"
+    other_tenant.slug = "other-store"
+    other_tenant.plan = MagicMock()
+    other_tenant.plan.value = "free"
+    other_tenant.api_key_hash = "otherhash"
+    other_tenant.owner_email = "other@test.com"
 
     mock_db.scalar.side_effect = [valid_tenant, other_tenant]
 

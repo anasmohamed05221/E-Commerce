@@ -24,5 +24,6 @@ limiter = Limiter(
     key_func=get_user_id,
     enabled=settings.ENV != "testing",
     default_limits=["200/hour"],
-    storage_uri=settings.REDIS_URL
+    storage_uri=settings.REDIS_URL,
+    in_memory_fallback_enabled=True
 )

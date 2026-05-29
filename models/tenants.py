@@ -27,7 +27,7 @@ class Tenant(Base, CreatedAtMixin):
     db_url = Column(String(500), nullable=True)
     slug = Column(String(50), unique=True, nullable=False, index=True)
     plan = Column(Enum(PlanTier, values_callable=lambda obj: [e.value for e in obj], name="plantier"), default=PlanTier.FREE, nullable=False)
-    api_key_hash = Column(String(64), unique=True, nullable=False, index=True)
+    api_key_hash = Column(String(64), unique=True, nullable=True, index=True)
     is_active = Column(Boolean, default=True, nullable=False)
     stripe_secret_key = Column(String(500), nullable=True)
     stripe_webhook_secret = Column(String(500), nullable=True)

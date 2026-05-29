@@ -31,3 +31,10 @@ class TenantOut(BaseModel):
 class TenantRegisterOut(TenantOut):
     api_key: str
     message: str
+
+class TenantRotateOut(BaseModel):
+    api_key: str
+    message: str
+
+class TenantRevokeOut(BaseModel):
+    message: str
